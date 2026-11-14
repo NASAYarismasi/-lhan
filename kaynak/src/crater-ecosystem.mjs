@@ -1005,7 +1005,7 @@ async function initMarsEnvironment() {
   }
   mesh(mast,mastRod,steel,0,8.6,0).scale.y=1.4
   placeBaseItem(mast,-14,-1)
-  const solar = addSolarFarm(T, scene, getTerrainHeight, baseObstacles)
+  const solar = addSolarFarm(T, scene, getTerrainHeight, baseObstacles,{greenhouse:greenhouseSite,water:waterSite})
 
   scene.add(colonyGroup)
   const greenhouse=createGreenhouse(scene)
@@ -1067,6 +1067,8 @@ async function initMarsEnvironment() {
   // CAMERA VIEWPOINTS (MARS SURFACE)
   // ==========================================================================
   const poses = {
+    breaker:{pos:[solar.x0+39,solar.level+3,solar.z0+19],target:[solar.x0+34,solar.level+.8,solar.z0+14]},
+    battery:{pos:[solar.x0+34,solar.level+3.8,solar.z0+8],target:[solar.x0+24,solar.level+1.5,solar.z0]},
     greenhouse:{pos:[greenhouseSite.x+13,8,greenhouseSite.z+18],target:[greenhouseSite.x,1.8,greenhouseSite.z]},
     air:{pos:[24,5.5,15],target:[19,1.6,5]},
     water:{pos:[waterSite.x-9,6.1,waterSite.z+11],target:[waterSite.x-2,1.65,waterSite.z]},
@@ -1414,7 +1416,11 @@ async function initMarsEnvironment() {
       }
     }
     keys.add(ev.code)
-    if (fpsActive && ev.code==="KeyE" && !ev.repeat) cycleAirlock()
+    if (fpsActive && ev.code==="KeyE" && !ev.repeat) {
+      const position=solar.switchPosition
+      if(position && Math.hypot(camera.position.x-position.x,camera.position.z-position.z)<1.7) solar.toggleBreaker()
+      else cycleAirlock()
+    }
     if (ev.code === "Escape" && fpsActive) {
       setFPSActive(false)
     }
