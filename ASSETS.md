@@ -59,6 +59,10 @@ Bulut alfa haritası, scrub/beton/folyo/kum dokuları, LC-39B geometrisi, Mars a
 
 ## Mars kolonisi (İhan — `src/colony/`, `public/models/colony/`)
 
+<!-- INIS: shared procedural lander; no additional third-party asset. -->
+`src/render/marsLander.js` içindeki ortak iniş aracı/kalkanı bu projeye ait özgün prosedürel geometridir; NASA modeli veya amblemi içermez, harici varlık yüklemez. DRA 5.0/SRP referansları bilimsel bağlamdır. Jezero kenarı/deltası ve motor aşınma izleri de prosedüreldir; gerçek DEM/CFD verisi oldukları iddia edilmez.
+<!-- END INIS. -->
+
 | Dosya | Kaynak | Lisans / not |
 |---|---|---|
 | `public/models/colony/habitat-nasa.glb` | [NASA/LaRC Habitat Demonstration Unit](https://science.nasa.gov/3d-resources/habitat-demonstration-unit/) | NASA medya kuralları |
