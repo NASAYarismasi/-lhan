@@ -29,7 +29,20 @@ Emre üretir, Samet aktarır, İhan koloni başlangıcında okur. İlk entegrasy
 }
 ```
 
-İlk sürüm için düz JavaScript modülleri kullanın. Ortak alanları değiştirmeden önce üç kişi birlikte karar versin.
+Ortak alanları değiştirmeden önce üç kişi birlikte karar versin.
 
 [Ekip repoları](https://github.com/orgs/NASAYarismasi/repositories)
 
+## Ortak 3D geliştirme planı
+
+- **Aday teknik temel:** Vite + Three.js, JavaScript ES modülleri. Üç ekip üyesi aynı paket sürümünü kullanır. Samet ana uygulamayı ve sahne geçişlerini yönetir.
+- **Model biçimi:** Blender’da içe al, ölçeği ve geometriyi kontrol et, glTF/GLB olarak dışa aktar. Three.js sahnelerinde metre ve Y-yukarı kullan. Bir modelin kaynak URL’sini, kullanım koşullarını ve yapılan düzenlemeleri kaydet. [NASA medya kullanım kuralları](https://www.nasa.gov/nasa-brand-center/images-and-media/)
+- **Görev bağlamı:** SLS ve Orion gerçek araçlardan alınan görsel referanslardır. Mars transfer aracı, insanlı iniş aracı ve yüzey üssü oyun için tasarlanan konseptlerdir.
+- **Entegrasyon:** README’deki ortak iniş JSON’u korunur. Uçuş sahnesi başarılı inişte bu veriyi döndürür, koloni aynı nesneyi alır. Sahne kapatılırken olay dinleyicileri, animasyonlar ve GPU kaynakları temizlenir.
+- **İlk ortak demo:** 3D kalkış → yolculuk kararı → 3D iniş → üç modül kur → bir sol ilerlet → görev raporu. Modeli yüklenemeyen bir sahne hata bilgisi ve yeniden deneme sunar.
+
+## Atanan GitHub görevleri
+
+- [NASA roket, kapsül ve astronot modellerini hazırla](https://github.com/NASAYarismasi/Emre/issues/1)
+- [3D kalkış ve Mars transfer sahnelerini geliştir](https://github.com/NASAYarismasi/Emre/issues/2)
+- [Mars inişini ve koloniye veri teslimini tamamla](https://github.com/NASAYarismasi/Emre/issues/3)
