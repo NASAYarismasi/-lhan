@@ -1,6 +1,6 @@
 # Mars’a İlk Koloni & Mars Krater Yaşam Destek Üssü
 
-**Güncel demo.** [MARS-KOLONISI-DUZ-OVA.html dosyasını indir](https://github.com/NASAYarismasi/-lhan/raw/refs/heads/main/MARS-KOLONISI-DUZ-OVA.html) ve tarayıcıda aç. Özel depo için ekibin GitHub hesabıyla oturum aç.
+**Güncel demo.** [MARS-KOLONISI-YUZEY-KESFI.html dosyasını indir](https://github.com/NASAYarismasi/-lhan/raw/refs/heads/main/MARS-KOLONISI-YUZEY-KESFI.html) ve tarayıcıda aç. Özel depo için ekibin GitHub hesabıyla oturum aç.
 
 **Sorumlu: İlhan · Görev 2**
 
