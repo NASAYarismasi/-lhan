@@ -1,17 +1,18 @@
-# Mars’a İlk Koloni & Ay Krater Yaşam Destek Üssü
+# Mars’a İlk Koloni & Mars Krater Yaşam Destek Üssü
 
 **Sorumlu: İlhan · Görev 2**
 
-### 🌕 Yeni: Ay & Mars Krater Ekosistemi (NASA ECLSS & Gerçekçi Morfoloji)
-Kullanıcının BBC News referans fotoğrafındaki gibi gerçekçi, yükseltilmiş kenarlı (rim crest), derin çanaklı ve sert vakum gölgeli krater arazisi:
+### 🪐 Yeni: Mars Krater Ekosistemi (NASA ECLSS & Gerçekçi Jezero Yüzeyi)
+Perseverance / Curiosity fotoğraflarındaki gibi kızıl regolit, taş tarlası, yassı tabakalar ve boğuk kayısı ufuk çizgisi. Koloninin kurulduğu alan **düz bir saha** olarak modellendi (krater tabanı + üç iniş düzlüğü).
 
-- **Dosya:** [AY-KRATER-EKOSISTEM.html](./AY-KRATER-EKOSISTEM.html) (Çift tıklanarak doğrudan Chrome veya Edge'de çevrimdışı açılır, 599 KB tek dosya).
+- **Dosya:** [AY-KRATER-EKOSISTEM.html](./AY-KRATER-EKOSISTEM.html) (Çift tıklanarak doğrudan Chrome veya Edge'de çevrimdışı açılır, ~606 KB tek dosya).
 - **Özellikler:**
-  - 📸 **BBC / Apollo Panoraması:** Referans görseldeki eğimli ufuk çizgisi, sert beyaz krater yamaçları ve zifiri karanlık gölgeler.
+  - 📸 **Mars Ovası Panoraması:** Düz koloni sahası, kızıl regolit dokusu, çakıl halısı ve tozlu kayısı gökyüzü.
+  - 🧱 **Düz Koloni Sahası:** Üs modülleri 60 m çapında düz bir platformda durur; çevrede krater kenarları ve doğal engebe korunur. Astronot yürürken zemin gerçek yükseklik fonksiyonundan takip edilir.
   - 🚶 **Astronot FPS Keşif Modu:** WASD ve fareyle krater kenarında gerçek göz hizasından (1.75m) serbestçe yürüme.
   - 🚀 **Bilimsel Üs:** Basınçlı habitat modülü, fotosentetik mor LED'li şeffaf sera kubbesi, ECLSS su geri dönüşüm ünitesi, çift kanatlı güneş panelleri, rover ve astronotlar.
   - 🔬 **NASA Yaşam Desteği (ECLSS):** Arcade / oyun mekaniği (coin, XP, seviye atlama) tamamen kaldırılmıştır. 3 kişilik mürettebat için saf bilimsel kütle/enerji dengesi (su, oksijen, kalori) ve kapalı döngü simülasyonu sunar.
-  - 🪐 **Ortam Değiştirici:** Tek tıkla 🌕 Ay (Referans Görsel) ile 🪐 Mars (Jezero Krateri) arasında geçiş.
+  - 🪐 **Ortam Değiştirici:** Varsayılan ortam Mars (Jezero); istenirse tek tıkla 🌕 Ay referans görünümüne geçilebilir.
 
 ### 💻 Düzenlenebilir kaynak proje
 
@@ -51,7 +52,7 @@ npm run dev
 
 | Dosya | İçerik |
 | --- | --- |
-| [AY-KRATER-EKOSISTEM.html](./AY-KRATER-EKOSISTEM.html) | Ay/Mars krater ekosistemi, ECLSS, FPS (599 KB) |
+| [AY-KRATER-EKOSISTEM.html](./AY-KRATER-EKOSISTEM.html) | Mars krater ekosistemi, düz koloni sahası, ECLSS, FPS (~606 KB) |
 | [MARS-KOLONI-FPS.html](./MARS-KOLONI-FPS.html) | Jezero kolonisi, tam FPS ve yaşam desteği (18 MB) |
 | [MARS-JEZERO-EKIP.html](./MARS-JEZERO-EKIP.html) | Ekip yönetimi sürümü (18 MB) |
 | [MARS-JEZERO-HIDROPONIK.html](./MARS-JEZERO-HIDROPONIK.html) | Hidroponik tarım sürümü (14 MB) |

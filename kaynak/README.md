@@ -18,7 +18,7 @@ Tarayıcı `http://localhost:5173` adresinde açılır. Menüden demo seç:
 | Sayfa | Demo |
 | --- | --- |
 | `index.html` | Demo menüsü |
-| `ay-krater.html` | Ay & Mars krater ekosistemi (ECLSS + FPS) |
+| `ay-krater.html` | Mars krater ekosistemi, düz koloni sahası (ECLSS + FPS) |
 | `mars.html` | Mars kolonisi, atölye, tarım, görev planı |
 | `jezero.html` | Jezero Krateri arazi ve ekosistem sahnesi |
 
@@ -38,7 +38,7 @@ kaynak/
 ├─ mars.html             Mars FPS demosunun sayfası
 ├─ jezero.html           Jezero demosunun sayfası
 ├─ src/
-│  ├─ crater-ecosystem.mjs   Ay/Mars krater sahnesi, ECLSS hesabı, FPS
+│  ├─ crater-ecosystem.mjs   Mars krater sahnesi, ECLSS hesabı, FPS
 │  ├─ mars-demo.mjs          koloni kurma, atölye, tarım, görev planı akışı
 │  ├─ jezero-ecosystem.mjs   Jezero arazi sahnesi
 │  ├─ mars-fps.mjs           birinci şahıs kamera ve yürüme
