@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Görev Kontrolü · Ay Haritalama</title>
+<style>
+  * { box-sizing: border-box }
+  body { margin: 0; background: #111923; color: #f3f6fa; font: 16px/1.5 "Segoe UI", sans-serif }
+  main { max-width: 1080px; margin: auto; padding: 36px 20px }
+  header { border-bottom: 1px solid #374455; margin-bottom: 22px; padding-bottom: 16px }
+  h1, h2, p { margin: 0 0 12px }
+  h1 { font-size: clamp(26px, 5vw, 38px) }
+  h2 { font-size: 22px }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px }
+  section, form { background: #1a2634; border: 1px solid #374455; border-radius: 12px; padding: 20px }
+  .fields, .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
+  label { display: grid; gap: 5px; font-size: 14px }
+  input, select, button { font: inherit; padding: 8px; border: 1px solid #53677d; border-radius: 6px; min-width: 0 }
+  input, select { color: inherit; background: #111923; width: 100% }
+  button { background: #9be8ce; color: #13221d; font-weight: 650; cursor: pointer; margin-top: 16px }
+  .metric { padding: 10px; background: #111923; border-radius: 6px }
+  .metric dt, small { color: #c4d1e0 }
+  .metric dd { margin: 0; font-size: 18px; font-weight: 650 }
+  .alert, .metric.over dd { color: #ffc5a4 }
+  .success, a { color: #9be8ce }
+  table { width: 100%; font-size: 13px; border-collapse: collapse; text-align: center }
+  th, td { padding: 7px 4px; border-bottom: 1px solid #374455 }
+  footer { margin-top: 16px }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr } }
+  @media (max-width: 375px) { .fields { grid-template-columns: 1fr } }
+</style>
+<main>
+  <header>
+    <h1>Görev Kontrolü</h1>
+    <p>Ay’ın güney kutbunu yörüngeden görüntüle. Bilim hedefini karşılayacak görüntüleri Dünya’ya gönder.</p>
+  </header>
+  <div class="layout">
+    <form id="mission">
+      <h2>Görev tasarımı</h2>
+      <div class="fields">
+        <label>Bilim hedefi<select name="objective"></select></label>
+        <label>Yörünge<select name="orbit"></select></label>
+        <label>Kamera<select name="camera"></select></label>
+        <label>Fırlatma aracı<select name="launcher"></select></label>
+        <label>Anten<select name="antenna"></select></label>
+        <label>Depolama<select name="storage"></select></label>
+        <label>Görev süresi (gün)<input name="days" type="number" required min="1" max="12" value="3"></label>
+        <label>Planlanan çekim / gün<input name="imagesPerDay" type="number" required min="1" max="8" value="4"></label>
+      </div>
+      <button type="submit">Simülasyonu çalıştır</button>
+    </form>
+    <section>
+      <h2>Görev raporu</h2>
+      <p id="status" role="status"></p>
+      <dl class="metrics" id="metrics"></dl>
+      <ul id="notes"></ul>
+      <table id="timeline">
+        <caption>Günlük görüntü akışı</caption>
+        <thead><tr><th scope="col">Gün</th><th scope="col">Çekildi</th><th scope="col">İletildi</th><th scope="col">Depoda</th><th scope="col">Depo dolu</th><th scope="col">Pencere yok</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+  <footer><small>50 km kamera verileri <a id="source">NASA LRO/LROC</a> kaynağından alınmıştır. Diğer sistem değerleri ve yörünge etkileri eğitim amaçlı model varsayımlarıdır.</small></footer>
+</main>
+<script>
+// NASA LRO/LROC at 50 km: resolution and combined swath from the PDS.
+// The remaining component values and operating limits are game parameters.
+const nasaSource =
+  "https://pds.nasa.gov/ds-view/pds/viewProfile.jsp?dsid=LRO-L-LROC-2-EDR-V1.0"
+
+const cameras = {
+  wide: { label: "Geniş açı", resolutionM: 100, swathKm: 60, massKg: 8, watts: 14, cost: 12, mbPerImage: 18 },
+  narrow: { label: "Dar açı", resolutionM: 0.5, swathKm: 5, massKg: 18, watts: 32, cost: 28, mbPerImage: 80 },
+}
+
+const launchers = {
+  shared: { label: "Paylaşımlı", limitKg: 100, cost: 22, orbits: ["low"] },
+  dedicated: { label: "Özel", limitKg: 160, cost: 37, orbits: ["low", "high"] },
+}
+
+const antennas = {
+  standard: { label: "Standart", mbPerDay: 160, massKg: 6, watts: 10, cost: 8 },
+  highRate: { label: "Yüksek hızlı", mbPerDay: 520, massKg: 16, watts: 21, cost: 23 },
+}
+
+const objectives = {
+  coverage: { label: "Bölgesel tarama", maxResolutionM: 100, minSwathKm: 30, minImages: 30 },
+  detail: { label: "Ayrıntılı alan incelemesi", maxResolutionM: 1, minSwathKm: 0, minImages: 12 },
+}
+
+// High orbit uses a simple altitude ratio for the same optics.
+// Observation and downlink windows are scenario assumptions.
+const orbits = {
+  low: { label: "Alçak kutup yörüngesi", altitudeKm: 50, maxImagesPerDay: 8, downlinkFraction: 1 },
+  high: { label: "Yüksek kutup yörüngesi", altitudeKm: 100, maxImagesPerDay: 6, downlinkFraction: 1.25 },
+}
+
+const storageOptions = {
+  standard: { label: "Standart", capacityMb: 640, massKg: 0, watts: 0, cost: 0 },
+  expanded: { label: "Genişletilmiş", capacityMb: 1280, massKg: 2, watts: 2, cost: 5 },
+}
+
+const limits = { budget: 110, watts: 80, storageMb: 640, maxDays: 12, maxImagesPerDay: 8 }
+const spacecraft = { massKg: 78, watts: 27, cost: 22 }
+
+function simulateMission({
+  objective = "detail",
+  camera = "narrow",
+  launcher = "dedicated",
+  antenna = "standard",
+  orbit = "low",
+  storage = "standard",
+  days = 6,
+  imagesPerDay = 2,
+} = {}) {
+  const target = Object.hasOwn(objectives, objective) && objectives[objective]
+  const instrument = Object.hasOwn(cameras, camera) && cameras[camera]
+  const vehicle = Object.hasOwn(launchers, launcher) && launchers[launcher]
+  const link = Object.hasOwn(antennas, antenna) && antennas[antenna]
+  const path = Object.hasOwn(orbits, orbit) && orbits[orbit]
+  const memory = Object.hasOwn(storageOptions, storage) && storageOptions[storage]
+  if (!target || !instrument || !vehicle || !link || !path || !memory) {
+    throw new RangeError("Görev hedefi, yörünge veya parça seçimi geçersiz.")
+  }
+  if (!Number.isInteger(days) || days < 1 || days > limits.maxDays ||
+      !Number.isInteger(imagesPerDay) || imagesPerDay < 1 || imagesPerDay > limits.maxImagesPerDay) {
+    throw new RangeError("Görev süresi 1–12 gün, çekim sayısı günde 1–8 olmalı.")
+  }
+
+  const massKg = spacecraft.massKg + instrument.massKg + link.massKg + memory.massKg
+  const watts = spacecraft.watts + instrument.watts + link.watts + memory.watts
+  const budgetUsed = spacecraft.cost + instrument.cost + vehicle.cost + link.cost + memory.cost
+  const downlinkMbPerDay = Math.floor(link.mbPerDay * path.downlinkFraction)
+  const scale = path.altitudeKm / 50
+  const observation = {
+    resolutionM: instrument.resolutionM * scale,
+    swathKm: instrument.swathKm * scale,
+    maxImagesPerDay: path.maxImagesPerDay,
+    requiredImages: target.minImages,
+  }
+  const issues = []
+
+  if (!vehicle.orbits.includes(orbit)) {
+    issues.push(`${vehicle.label} fırlatma seçeneği bu yörüngeyi desteklemiyor.`)
+  }
+  if (massKg > vehicle.limitKg) {
+    issues.push(`Fırlatma kapasitesi ${massKg - vehicle.limitKg} kg aşıldı.`)
+  }
+  if (watts > limits.watts) {
+    issues.push(`Tepe güç sınırı ${watts - limits.watts} W aşıldı.`)
+  }
+  if (budgetUsed > limits.budget) {
+    issues.push(`Bütçe ${budgetUsed - limits.budget} kredi aşıldı.`)
+  }
+
+  const resources = { massKg, massLimitKg: vehicle.limitKg, watts, powerLimitW: limits.watts,
+    budgetUsed, budgetLimit: limits.budget, downlinkMbPerDay, storageMb: memory.capacityMb }
+  if (issues.length) {
+    return {
+      status: "preflight-failed", resources, observation, timeline: [], deliveredImages: 0,
+      lostImages: 0, skippedImages: 0, queuedImages: 0, issues,
+    }
+  }
+
+  let storedImages = 0
+  let deliveredImages = 0
+  let lostImages = 0
+  const opportunities = Math.min(imagesPerDay, path.maxImagesPerDay)
+  const skippedPerDay = imagesPerDay - opportunities
+  const maxStoredImages = Math.floor(memory.capacityMb / instrument.mbPerImage)
+  const maxSentImages = Math.floor(downlinkMbPerDay / instrument.mbPerImage)
+  const timeline = []
+
+  for (let day = 1; day <= days; day += 1) {
+    const captured = Math.min(opportunities, maxStoredImages - storedImages)
+    const dropped = opportunities - captured
+    storedImages += captured
+    const sent = Math.min(storedImages, maxSentImages)
+    storedImages -= sent
+    deliveredImages += sent
+    lostImages += dropped
+    timeline.push({ day, captured, sent, dropped, skipped: skippedPerDay, queued: storedImages })
+  }
+
+  if (observation.resolutionM > target.maxResolutionM) {
+    issues.push(`Hedef en fazla ${target.maxResolutionM} m/piksel çözünürlük istiyor.`)
+  }
+  if (observation.swathKm < target.minSwathKm) {
+    issues.push(`Hedef en az ${target.minSwathKm} km genişliğinde bir çekim şeridi istiyor.`)
+  }
+  if (deliveredImages < target.minImages) {
+    issues.push(`Hedef için ${target.minImages} görüntü gerekli. Dünya'ya ${deliveredImages} görüntü ulaştı.`)
+  }
+
+  return {
+    status: issues.length ? "objective-missed" : "success",
+    resources,
+    observation,
+    timeline,
+    deliveredImages,
+    lostImages,
+    skippedImages: skippedPerDay * days,
+    queuedImages: storedImages,
+    issues,
+  }
+}
+
+
+const form = document.getElementById("mission")
+const catalogs = { objective: objectives, orbit: orbits, camera: cameras, launcher: launchers,
+  antenna: antennas, storage: storageOptions }
+for (const [name, catalog] of Object.entries(catalogs)) {
+  const input = form.elements.namedItem(name)
+  for (const [value, option] of Object.entries(catalog)) {
+    const label = name === "orbit" ? option.label + " · " + option.altitudeKm + " km" : option.label
+    input.add(new Option(label, value))
+  }
+}
+form.elements.objective.value = "detail"
+form.elements.camera.value = "narrow"
+form.elements.launcher.value = "dedicated"
+document.getElementById("source").href = nasaSource
+
+function runMission() {
+  const input = Object.fromEntries(new FormData(form))
+  input.days = Number(input.days)
+  input.imagesPerDay = Number(input.imagesPerDay)
+  const report = simulateMission(input)
+  const { resources, observation } = report
+  const labels = { success: "Görev başarılı", "objective-missed": "Bilim hedefi eksik",
+    "preflight-failed": "Fırlatma öncesi kontrol başarısız" }
+  const status = document.getElementById("status")
+  status.textContent = labels[report.status]
+  status.className = report.status === "success" ? "success" : "alert"
+
+  const values = [
+    ["Kütle", resources.massKg + " / " + resources.massLimitKg + " kg", resources.massKg > resources.massLimitKg],
+    ["Tepe güç", resources.watts + " / " + resources.powerLimitW + " W", resources.watts > resources.powerLimitW],
+    ["Bütçe", resources.budgetUsed + " / " + resources.budgetLimit + " kredi", resources.budgetUsed > resources.budgetLimit],
+    ["Aktarım", resources.downlinkMbPerDay + " MB/gün"],
+    ["Depolama", resources.storageMb + " MB"],
+    ["Görüntü ölçeği", new Intl.NumberFormat("tr-TR").format(observation.resolutionM) + " m/piksel"],
+    ["Çekim şeridi", observation.swathKm + " km"],
+    ["Dünya’ya ulaştı", report.deliveredImages + " / " + observation.requiredImages + " hedef"],
+  ]
+  const metrics = document.getElementById("metrics")
+  metrics.replaceChildren()
+  for (const [label, value, over] of values) {
+    const card = document.createElement("div")
+    card.className = over ? "metric over" : "metric"
+    const term = document.createElement("dt")
+    const detail = document.createElement("dd")
+    term.textContent = label
+    detail.textContent = value
+    card.append(term, detail)
+    metrics.append(card)
+  }
+
+  const messages = [...report.issues]
+  if (report.queuedImages) messages.push(report.queuedImages + " görüntü görev sonunda araçta kaldı.")
+  if (report.lostImages) messages.push("Depo dolduğu için " + report.lostImages + " çekim kaydedilemedi.")
+  if (report.skippedImages) messages.push("Yörüngedeki gözlem penceresi " + report.skippedImages + " planlı çekime yetmedi.")
+  document.getElementById("notes").replaceChildren(...messages.map(message => {
+    const item = document.createElement("li")
+    item.textContent = message
+    return item
+  }))
+
+  const table = document.getElementById("timeline")
+  table.hidden = report.timeline.length === 0
+  const body = table.tBodies[0]
+  body.replaceChildren()
+  for (const day of report.timeline) {
+    const row = body.insertRow()
+    for (const value of [day.day, day.captured, day.sent, day.queued, day.dropped, day.skipped]) {
+      row.insertCell().textContent = value
+    }
+  }
+}
+
+form.addEventListener("submit", event => {
+  event.preventDefault()
+  runMission()
+})
+runMission()
+</script>
+</html>
+

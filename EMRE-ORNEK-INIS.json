@@ -1,0 +1,32 @@
+{
+  "crew": [
+    {
+      "id": "astronaut-1",
+      "health": 100
+    },
+    {
+      "id": "astronaut-2",
+      "health": 100
+    },
+    {
+      "id": "astronaut-3",
+      "health": 100
+    }
+  ],
+  "supplies": {
+    "food": 61.06923101603792,
+    "water": 61.06923101903423,
+    "oxygen": 61.06923102010682,
+    "spareParts": 1
+  },
+  "modules": [
+    "habitat",
+    "solarPanel",
+    "battery",
+    "oxygenUnit",
+    "waterRecycler",
+    "greenhouse"
+  ],
+  "landingSite": "flat",
+  "surfaceEnergy": 8
+}

@@ -4,6 +4,16 @@
 
 ## Çalıştırma
 
+**Yaşam desteği demosu.** `MARS-JEZERO-YASAM-DESTEGI.html` dosyasını aç. Dünya yük planında erzak ve cihazları seç, kütleyi kontrol et ve Mars operasyonunu başlat. İki güneş paneli, iki batarya ve diğer tüm cihazları uygun zemine kur. İlk sol üç astronotu inşaata ata. İkinci sol kalan cihazları kurmak için en az iki astronotu inşaata ver. Tarım için üretim, panel bakımı için bakım görevini kullan.
+
+Tariflerde yetiştirme süreleri oyun süresidir. Yüzey yük ağırlıkları, enerji, su geri kazanım oranı ve stok miktarları senaryo varsayımlarıdır. Yüzey kaynak birimi kişi-sol, uçuş JSON’u ise ekip-günü olarak ele alınır. Yüzey kütle hesabında bir sol yaklaşık 1,0275 Dünya günü olarak alınır. Kurgu Mars görevinin yaşam desteği [ISS ECLSS](https://www.nasa.gov/reference/environmental-control-and-life-support-systems-eclss/) ve [Apollo su ve yemek düzeni](https://www.nasa.gov/wp-content/uploads/2023/12/ochmo-tb-022-apollo-lunar-lander.pdf) üzerinden modellenmiştir. Transfer erzak tahmini için [NASA tüketim referansı](https://ntrs.nasa.gov/citations/20160005782) kullanılmıştır.
+
+Bu sürümde yürüme ve yerleştirme yüzeyi Jezero [HiRISE DTM](https://www.uahirise.org/dtm/dtm.php?ID=ESP_048842_1985) yaklaşık 1 metre örnek aralığındaki merkez kesitinden gelir. Çevre daha seyrek örneklenir. Renk verilmiş ortofoto aynı arazi kesitine hizalanır. Tarım, maden ve bina yerleri oyun senaryosudur. Önceki MOLA GLB’si arşivde tarihsel model olarak bulunur.
+
+Güncel ekip demosu `MARS-JEZERO-EKIP.html` ile açılır. **Bilek ekranı** düğmesi veya FPS sahnesinde **Sol Alt** ile Samet’in kol geometrisine bağlanan telemetriyi aç. Ekran, koloninin anlık batarya, su, oksijen ve yiyeceğini gösterir. Varsayılan karakter olarak Emre’nin uçuş dalındaki NASA astronot GLB’si gömülüdür. [Samet’in bilek terminali](https://github.com/NASAYarismasi/Samet/commit/7710a26) · [Emre’nin uçuş sürümü](https://github.com/NASAYarismasi/Emre/commit/83a2cb7)
+
+**İniş verisi** alanına Emre’nin `getTelemetry().landingPayload` nesnesinin JSON çıktısını yükle. Kaynaklar, yük listesi, mürettebat sağlığı ve yüzey enerjisi bu veriden gelir. `createColonyFromFlight(payload)` yalnızca su, oksijen ve yiyeceği ekip-gününden kişi-gününe çevirir. Örnek demo mevcut oyun birimlerini kullanır. Saha tercihi ekranda gösterilir. Demo aynı Jezero kesitinde çalışır.
+
 `MARS-KOLONI.html` dosyasını Edge veya Chrome’da aç. Demo çevrimdışı çalışır. Perseverance modelini sahneye eklemek için ilgili düğmeyi kullan. Modüller 3B sahnede zemindeki seçilen noktaya yerleştirilir. Güneş paneli yaşam modülünün üstündeki işaretli platforma da oturur.
 
 **Birinci şahıs görünümü.** Astronotu seçip **Astronotun gözünden gez** düğmesine bas. WASD ile yürü. Fareyle bakmak için sahneye tıkla veya ok tuşlarını kullan. Zeminde istediğin noktayı hedefle ve E’ye bas. Çatı için yaşam modülüne bakıp R’ye bas, paneli istediğin noktaya nişanla ve E ile yerleştir. R ile yere in, Esc ile üs planına dön.

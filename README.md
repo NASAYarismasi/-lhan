@@ -1,8 +1,21 @@
-# Mars’a İlk Koloni — Koloni ve Kaynaklar
+# Mars’a İlk Koloni & Ay Krater Yaşam Destek Üssü
 
-**Sorumlu: İhan · Görev 2**
+**Sorumlu: İlhan · Görev 2**
 
-Mars’a ulaşan üç astronotun yanlarında getirdikleri ekipmanla üs kurabildiği yüzey bölümünü geliştir.
+### 🌕 Yeni: Ay & Mars Krater Ekosistemi (NASA ECLSS & Gerçekçi Morfoloji)
+Kullanıcının BBC News referans fotoğrafındaki gibi gerçekçi, yükseltilmiş kenarlı (rim crest), derin çanaklı ve sert vakum gölgeli krater arazisi:
+
+- **Dosya:** [AY-KRATER-EKOSISTEM.html](./AY-KRATER-EKOSISTEM.html) (Çift tıklanarak doğrudan Chrome veya Edge'de çevrimdışı açılır, 599 KB tek dosya).
+- **Özellikler:**
+  - 📸 **BBC / Apollo Panoraması:** Referans görseldeki eğimli ufuk çizgisi, sert beyaz krater yamaçları ve zifiri karanlık gölgeler.
+  - 🚶 **Astronot FPS Keşif Modu:** WASD ve fareyle krater kenarında gerçek göz hizasından (1.75m) serbestçe yürüme.
+  - 🚀 **Bilimsel Üs:** Basınçlı habitat modülü, fotosentetik mor LED'li şeffaf sera kubbesi, ECLSS su geri dönüşüm ünitesi, çift kanatlı güneş panelleri, rover ve astronotlar.
+  - 🔬 **NASA Yaşam Desteği (ECLSS):** Arcade / oyun mekaniği (coin, XP, seviye atlama) tamamen kaldırılmıştır. 3 kişilik mürettebat için saf bilimsel kütle/enerji dengesi (su, oksijen, kalori) ve kapalı döngü simülasyonu sunar.
+  - 🪐 **Ortam Değiştirici:** Tek tıkla 🌕 Ay (Referans Görsel) ile 🪐 Mars (Jezero Krateri) arasında geçiş.
+
+---
+
+## Orijinal Görev Tanımı (Görev 2)
 
 - [ ] Küçük bir ızgarada envanterden yaşam modülü, güneş paneli, batarya, oksijen ünitesi, su geri dönüşümü ve sera kurulabilsin.
 - [ ] Üç astronotu inşaat, bakım veya üretime ata. Her sol enerji üretimini ve tüketimini, erzak tüketimini ve kalan stokları hesapla.
@@ -13,15 +26,32 @@ Mars’a ulaşan üç astronotun yanlarında getirdikleri ekipmanla üs kurabild
 
 ## Oynanabilir FPS demosu
 
-[MARS-TARIM-ATOLYE.html](./MARS-TARIM-ATOLYE.html) dosyasını indir, sonra Chrome veya Edge’de çift tıklayarak aç. Oyun çevrimdışı çalışır ve doğrudan astronotun gözünden başlar.
+[MARS-KOLONI-FPS.html](./MARS-KOLONI-FPS.html) (en güncel sürüm) veya [MARS-TARIM-ATOLYE.html](./MARS-TARIM-ATOLYE.html) dosyasını indir, sonra Chrome veya Edge’de çift tıklayarak aç. Oyun çevrimdışı çalışır ve doğrudan astronotun gözünden başlar.
 
 - **WASD** ile yürü. **E** ile kaynak topla veya seçtiğin modülü hedeflediğin zemine yerleştir. **Esc** ile üst görünüme geç.
 - **Atölye ve tarım** bölümünde buz ve organik atığı işle, kapalı tarım kabinleri üret. Hasadı erzağa aktar veya kredi karşılığında teslim et. Tarım XP’si yeni tarifler açar.
 - [Ekip paketi](./MARS-KOLONI-EKIP.zip) derlenebilir kaynakları ve GLB modellerini içerir. [Entegrasyon kılavuzu](./MARS-ENTEGRASYON.md) ortak iniş verisini ve görev raporunu açıklar. [Koloni simülasyonu](./mars-koloni.mjs) ve [atölye kuralları](./mars-atolye.mjs) doğrudan incelenebilir.
 
+### Demo dosyaları
+
+| Dosya | İçerik |
+| --- | --- |
+| [AY-KRATER-EKOSISTEM.html](./AY-KRATER-EKOSISTEM.html) | Ay/Mars krater ekosistemi, ECLSS, FPS (599 KB) |
+| [MARS-KOLONI-FPS.html](./MARS-KOLONI-FPS.html) | Jezero kolonisi, tam FPS ve yaşam desteği (18 MB) |
+| [MARS-JEZERO-EKIP.html](./MARS-JEZERO-EKIP.html) | Ekip yönetimi sürümü (18 MB) |
+| [MARS-JEZERO-HIDROPONIK.html](./MARS-JEZERO-HIDROPONIK.html) | Hidroponik tarım sürümü (14 MB) |
+| [MARS-JEZERO-ASTRONOT.html](./MARS-JEZERO-ASTRONOT.html) | Astronot görev sürümü (17 MB) |
+| [JEZERO-EKOSISTEM.html](./JEZERO-EKOSISTEM.html) | Jezero ekosistem sahnesi (9 MB) |
+| [JEZERO-KRATERLI-ARAZI.html](./JEZERO-KRATERLI-ARAZI.html) | Kraterli arazi testi (9 MB) |
+| [MARS-KOLONI.html](./MARS-KOLONI.html) | Koloni kurma demosu (13 MB) |
+| [GOREV-DEMO.html](./GOREV-DEMO.html) | Görev ve simülasyon demo ekranı |
+| [index.html](./index.html) | AY-KRATER ile aynı (hızlı açılış) |
+
+3B modeller `mars-modelleri/` klasöründe (GLB), simülasyon ve araç kaynakları `*.mjs` dosyalarında bulunur.
+
 ## Ortak iniş verisi
 
-Emre üretir, Samet aktarır, İhan koloni başlangıcında okur. İlk entegrasyon için aynı örneği kullanın. Sayılar oyun birimidir.
+Emre üretir, Samet aktarır, İlhan koloni başlangıcında okur. İlk entegrasyon için aynı örneği kullanın. Sayılar oyun birimidir.
 
 ```json
 {
