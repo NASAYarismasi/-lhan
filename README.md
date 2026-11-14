@@ -1,6 +1,6 @@
 # Mars’a İlk Koloni & Mars Krater Yaşam Destek Üssü
 
-**Güncel demo.** [MARS-KOLONISI-INVERTER-DAGILIMI.html dosyasını indir](https://github.com/NASAYarismasi/-lhan/raw/refs/heads/main/MARS-KOLONISI-INVERTER-DAGILIMI.html) ve tarayıcıda aç. Özel depo için ekibin GitHub hesabıyla oturum aç.
+**Güncel demo.** [MARS-KOLONISI-MIKROSEBEKE.html dosyasını indir](https://github.com/NASAYarismasi/-lhan/raw/refs/heads/main/MARS-KOLONISI-MIKROSEBEKE.html) ve tarayıcıda aç. Özel depo için ekibin GitHub hesabıyla oturum aç.
 
 **Sorumlu: İlhan · Görev 2**
 
