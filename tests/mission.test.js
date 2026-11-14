@@ -4,7 +4,7 @@ import { CREW_RATES } from '../src/data/sls.js';
 import { DAY } from '../src/sim/constants.js';
 import { buildLandingPayload } from '../src/sim/landingPayload.js';
 import { readFileSync } from 'node:fs';
-it('consumes exactly 259 crew-days for 3 people and converts remaining kg to README units', () => {
+it('consumes exactly 259 crew-days for 3 people and converts remaining kg to colony units', () => {
   const m = createMission(), before = { ...m.state.supplies };
   expect(consumeSupplies(m.state, 259 * DAY)).toBe(259 * DAY);
   for (const [name, rate] of Object.entries(CREW_RATES)) expect(before[name] - m.state.supplies[name]).toBeCloseTo(259 * 3 * rate, 8);
@@ -19,7 +19,8 @@ it('consumes exactly 259 crew-days for 3 people and converts remaining kg to REA
   expect(Object.keys(p).sort()).toEqual(['crew', 'supplies', 'modules', 'landingSite', 'surfaceEnergy'].sort());
   expect(p.crew).toEqual([{ id: 'astronaut-1', health: 100 }, { id: 'astronaut-2', health: 100 }, { id: 'astronaut-3', health: 100 }]);
   expect(Object.keys(p.supplies).sort()).toEqual(['food', 'water', 'oxygen', 'spareParts'].sort());
-  for (const key of ['oxygen', 'water', 'food']) expect(p.supplies[key]).toBeCloseTo(61, 8);
+  // 61 whole-crew days remain (~178 person-sols); the lander only carries LANDER_SURFACE_SOLS per person.
+  for (const key of ['oxygen', 'water', 'food']) expect(p.supplies[key]).toBe(12);
   expect(p.modules).toEqual(['habitat', 'solarPanel', 'battery', 'oxygenUnit', 'waterRecycler', 'greenhouse']);
   expect(p.landingSite).toBe('flat'); expect(p.surfaceEnergy).toBe(8);
   p.crew[0].health = 0; p.modules.pop();

@@ -56,3 +56,14 @@ Bulut alfa haritası, scrub/beton/folyo/kum dokuları, LC-39B geometrisi, Mars a
 İlk `eoimages.gsfc.nasa.gov` bağlantıları reset, doğrudan USGS indirmesi erişim hatası verdi; yukarıdaki NASA Science/Planetary Society kaynaklarıyla **gerekli dört harita tamamlandı**. Başlangıçta indirilen 1K yıldız önizlemesi son 4K EXR türeviyle değiştirildi.
 
 İsteğe bağlı gerçek bulut haritası için [NASA Blue Marble Clouds kaydı](https://visibleearth.nasa.gov/images/57747/blue-marble-clouds) üzerinden `cloud_combined_2048.jpg` indirilebilir; bu ortamda eski [doğrudan adres](https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg) erişilemedi. Şimdilik seeded prosedürel alfa kullanılır. Ayrı NASA okyanus/specular maskesi bulunmadığından gündüz dokusunun mavi baskınlığından yaklaşık okyanus maskesi hesaplanır. Mars yerel DEM/normal haritası eklenmedi; gerçek araziyle eşleştirilmiş bir iniş sahası yoktur.
+
+## Mars kolonisi (İhan — `src/colony/`, `public/models/colony/`)
+
+| Dosya | Kaynak | Lisans / not |
+|---|---|---|
+| `public/models/colony/habitat-nasa.glb` | [NASA/LaRC Habitat Demonstration Unit](https://science.nasa.gov/3d-resources/habitat-demonstration-unit/) | NASA medya kuralları |
+| `public/models/colony/insight.glb` | [NASA InSight Cruise Lander](https://science.nasa.gov/3d-resources/insight-cruise-lander/) (Brian E. Kumanchik) | NASA medya kuralları |
+| `public/models/colony/perseverance.glb` | [NASA/JPL Mars 2020 Perseverance](https://science.nasa.gov/3d-resources/mars-2020-perseverance-rover/) | NASA medya kuralları |
+| `src/colony/scene/jezero.json` | [NASA PDS MGS/MOLA MEGDR](https://pds-geosciences.wustl.edu/missions/mgs/megdr.html), Jezero Krateri 25×25 örnek | Kamu malı veri |
+
+Koloni kuralları, kaynak miktarları, tarım ve atölye değerleri eğitsel oyun birimleridir (İhan, `MARS-ENTEGRASYON.md`). Uçuştan koloniye birim dönüşümü: `src/sim/landingPayload.js` (1 birim = bir astronotun bir sollük ihtiyacı, NASA BVAD oranlarıyla).
