@@ -1,5 +1,7 @@
 # Mars’a İlk Koloni & Mars Krater Yaşam Destek Üssü
 
+**Güncel demo.** [AY-KRATER-EKOSISTEM.html dosyasını indir](https://github.com/NASAYarismasi/-lhan/raw/refs/heads/main/AY-KRATER-EKOSISTEM.html) ve tarayıcıda aç. Özel depo için ekibin GitHub hesabıyla oturum aç.
+
 **Sorumlu: İlhan · Görev 2**
 
 ### 🪐 Yeni: Mars Krater Ekosistemi (NASA ECLSS & Gerçekçi Jezero Yüzeyi)
