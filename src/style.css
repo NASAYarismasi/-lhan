@@ -54,3 +54,16 @@
 @media(max-width:750px){#launch-card{left:8%;top:12%;width:84%;max-width:420px}#launch-card h1{font-size:64px}#launch-card .title-subtitle{font-size:11px}.title-actions{width:280px}.camera-nav #watch-btn{font-size:7px;padding:0 7px}#wrist-computer{right:12px;width:280px}.team-cards{gap:9px}.team-cards span{font-size:9px}}
 
 .mission-action.colony-action{background:#e8a27a;color:#2a160d;border-color:#e8a27a;font-weight:700}
+
+/* BOLUM: chapter menu only; keep the flight and wrist layouts independent. */
+#launch-card{max-height:88vh;overflow-y:auto;pointer-events:auto;padding:0 8px 20px 0;scrollbar-width:thin;scrollbar-color:#8ba8b655 transparent}
+#launch-card .title-actions,.title-team{width:min(370px,100%)}
+#launch-card .title-actions button{align-items:center;gap:12px;min-height:49px}
+#launch-card .title-actions #start-btn span{color:#21483d}
+#launch-card .title-actions #landing-chapter{border-color:#dbaf7b80;color:#ebc49d;background:#34291d50}
+#launch-card .title-actions #landing-chapter:hover{background:#5c432c70;border-color:#edc49d}
+#launch-card .title-actions #landing-chapter span{color:#ebc49d}
+.title-utilities{display:grid;grid-template-columns:1fr 1.6fr;gap:10px}
+#launch-card .title-utilities button{min-height:38px;padding:10px 12px;font-size:11px}
+@media(max-height:780px){#launch-card{max-height:92vh}.title-eyebrow{margin-bottom:14px}#launch-card h1{margin-bottom:16px}.title-rule{margin:15px 0 12px}.title-team{margin-top:18px}}
+/* END BOLUM. */

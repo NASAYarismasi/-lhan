@@ -1,4 +1,4 @@
-import { createMission } from '../sim/mission.js';
+import { createScenario } from '../sim/scenarios.js';
 import { createCountdown } from '../sim/countdown.js';
 import { createDebris } from '../sim/debris.js';
 import { createLoop, WARPS, SIM_DT } from './loop.js';
@@ -13,13 +13,20 @@ import { createSceneManager } from '../render/sceneManager.js';
 import { createHUD } from '../ui/hud.js';
 
 export async function bootstrap(){
-  let mission=createMission(),countdown=createCountdown(),debris=createDebris(),trajectory=[],exhaustHistory=[],ready=false;
+  let mission=createScenario('launch'),countdown=createCountdown(),debris=createDebris(),trajectory=[],exhaustHistory=[],ready=false,chapter='launch';
   let previousState,currentState,manualTime=false,disposed=false,frameDelta=1/60,lastPhase='PRELAUNCH',fps=60,notice='';
   const ui={manual:false,help:false,about:false,watch:false,title:true,notice:''},audio=createAudio(),store=createStore();
   const snapshot=()=>({...captureRenderState(mission,countdown,debris),trajectory:[...trajectory],exhaust:exhaustHistory});
   const canManual=()=>['ASCENT','TMI_BURN','MOI_BURN'].includes(mission.state.phase);
   const commands={
-    launch(){if(ready&&!loop.paused&&!ui.help&&!ui.about) {ui.title=false;cameras.select(0);audio.start();countdown.start();sync();}},
+    launch(){if(ready&&!loop.paused&&!ui.help&&!ui.about&&mission.state.phase==='PRELAUNCH') {if(ui.title)return commands.startChapter('launch');audio.start();countdown.start();sync();return true;}return false;},
+    startChapter(name){
+      if(!ready)return false;
+      const next=createScenario(name);
+      replaceMission(next,false);chapter=name;audio.start();
+      if(name==='launch')countdown.start();
+      sync();return true;
+    },
     burn(){if(!loop.paused){audio.start();mission.burn();sync();}},
     pause(){if(ui.about)ui.about=false;else if(ui.help)ui.help=false;else loop.setPaused(!loop.paused);sync();},
     help(){ui.help=!ui.help;sync();},
@@ -29,7 +36,7 @@ export async function bootstrap(){
     warp(direction=1){const start=WARPS.indexOf(loop.warp);for(let i=1;i<=WARPS.length;i++){const value=WARPS[(start+direction*i+WARPS.length*2)%WARPS.length];if(mission.setWarp(value)&&loop.setWarp(value))break;}sync();},
     quality(value,adaptive){graphics.setQuality(value,adaptive);sync();},
     volume(value){audio.start();audio.setVolume(value);},mute(){audio.start();audio.toggleMute();sync();},
-    reset(){mission=createMission();countdown=createCountdown();debris=createDebris();trajectory=[];exhaustHistory=[];loop.reset();input.keys.clear();audio.reset();Object.assign(ui,{manual:false,help:false,about:false,watch:false,title:true,notice:''});lastPhase='PRELAUNCH';manager.exit();cameras.select(0);previousState=currentState=snapshot();sync();}
+    reset(){replaceMission(createScenario('launch'),true);chapter='launch';sync();}
   };
   const hud=createHUD(commands);
   const assets=await loadAssets((done,total)=>hud.progress(done,total));
@@ -50,6 +57,12 @@ export async function bootstrap(){
     else if(['fullThrottle','cutThrottle'].includes(action)&&canManual()&&ui.manual&&!loop.paused){mission.setThrottle(action==='fullThrottle'?1:0);sync();}
     else if(action==='fullscreen'){(document.fullscreenElement?document.exitFullscreen():document.querySelector('main').requestFullscreen()).catch(()=>{});}
   });
+  function replaceMission(next,title){
+    mission=next;countdown=createCountdown();debris=createDebris();trajectory=[];exhaustHistory=[];
+    loop.reset();input.keys.clear();audio.reset();
+    Object.assign(ui,{manual:false,help:false,about:false,watch:false,title,notice:''});
+    lastPhase=mission.state.phase;manager.exit();cameras.select(0);previousState=currentState=snapshot();
+  }
   function release(id,side=0){
     const a=mission.state.ascent.state,[r,theta,vr,vt]=a.vector,angle=a.pitch-theta-Math.PI/2;
     const ox=id==='srbLeft'?-6.4:id==='srbRight'?6.4:0,oy=id.startsWith('srb')?27:id==='core'?33:94;
@@ -96,9 +109,12 @@ export async function bootstrap(){
   previousState=currentState=snapshot();ready=true;hud.ready(assets.failures);
   let previous=performance.now();graphics.renderer.setAnimationLoop(now=>{const elapsed=Math.max(0,(now-previous)/1000);frameDelta=Math.min(.1,Math.max(.001,elapsed));previous=now;fps=fps*.95+Math.min(120,1/Math.max(.001,elapsed))*.05;loop.advance(manualTime?0:elapsed);});
   window.advanceTime=ms=>{manualTime=true;loop.advance(ms/1000);while(!loop.paused&&loop.backlog+1e-12>=SIM_DT)loop.advance(0);};
-  window.render_game_to_text=()=>JSON.stringify({ready,titleScreen:ui.title,watch:ui.watch,about:ui.about,phase:mission.state.phase,camera:cameras.name,cameraIndex:cameras.selected,paused:loop.paused,manualThrottle:ui.manual,help:ui.help,muted:audio.muted,quality:graphics.quality,warp:loop.warp,countdown:countdown.state,telemetry:currentState,renderedMissionTime:manager.active?.state?.missionTime,mapLayout:manager.active?.labelLayout,backlogSeconds:loop.backlog,performance:{fps:Math.round(fps),drawCalls:graphics.renderer.info.render.calls,triangles:graphics.renderer.info.render.triangles,...graphics.renderer.info.memory},coordinates:'SI metres; Y-up; floating origin at vehicle, radial tangent basis; maps use scaled distances'});
+  window.render_game_to_text=()=>JSON.stringify({ready,titleScreen:ui.title,chapter,watch:ui.watch,about:ui.about,phase:mission.state.phase,camera:cameras.name,cameraIndex:cameras.selected,paused:loop.paused,manualThrottle:ui.manual,help:ui.help,muted:audio.muted,quality:graphics.quality,warp:loop.warp,countdown:countdown.state,telemetry:currentState,renderedMissionTime:manager.active?.state?.missionTime,mapLayout:manager.active?.labelLayout,backlogSeconds:loop.backlog,performance:{fps:Math.round(fps),drawCalls:graphics.renderer.info.render.calls,triangles:graphics.renderer.info.render.triangles,...graphics.renderer.info.memory},coordinates:'SI metres; Y-up; floating origin at vehicle, radial tangent basis; maps use scaled distances'});
   // Command-only integration surface: no live sim state or phase/time setters.
   window.missionControl={...commands,resumeRealtime(){manualTime=false;previous=performance.now();}};
   function dispose(){if(disposed)return;disposed=true;ready=false;window.removeEventListener('pagehide',dispose);graphics.renderer.setAnimationLoop(null);input.dispose();manager.exit();cameras.dispose();graphics.dispose();assets.dispose();hud.dispose();store.dispose();audio.dispose();delete window.advanceTime;delete window.render_game_to_text;delete window.missionControl;}
-  if(import.meta.hot)import.meta.hot.dispose(dispose);window.addEventListener('pagehide',dispose,{once:true});loop.advance(0);
+  if(import.meta.hot)import.meta.hot.dispose(dispose);window.addEventListener('pagehide',dispose,{once:true});
+  // Read the demo deep link once; reset always stays on the title screen.
+  if(new URLSearchParams(window.location.search).get('bolum')==='inis')commands.startChapter('mars-orbit');
+  else loop.advance(0);
 }

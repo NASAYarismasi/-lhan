@@ -113,7 +113,12 @@ export function createMission({ crewCount = 3, supplyDuration = 320 * DAY, suppl
   }
   function beginBurn(phase, deltaV) { state.burnRemaining = deltaV; state.burnDelivered = 0; state.throttle = 1; transition(phase); state.warp = Math.min(10, state.warp); }
   function burn() {
-    if (state.phase === 'PARKING_ORBIT') { beginBurn('TMI_BURN', state.transfer.departureDeltaV); return true; }
+    if (state.phase === 'PARKING_ORBIT') {
+      // The preassembled transit vehicle takes over in LEO; ICPS stays behind.
+      // GAME ASSUMPTION: rendezvous/separation impulse is not modelled.
+      if (ascent.state.vehicle.separate('icps')) state.events.push({ type: 'ICPS_SEPARATION', time: state.time });
+      beginBurn('TMI_BURN', state.transfer.departureDeltaV); return true;
+    }
     if (state.phase === 'MARS_ORBIT') {
       const entry = entryFromOrbit();
       state.deorbitPropellant = LANDER.propellantMass + LANDER.dryMass;
