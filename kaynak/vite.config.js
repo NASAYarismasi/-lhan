@@ -6,9 +6,13 @@ const page = name => fileURLToPath(new URL(name, import.meta.url))
 export default defineConfig({
   // dist klasörü göreli yollarla çalışsın diye
   base: "./",
+  resolve: {
+    dedupe: ["three"],
+  },
   server: {
     port: 5173,
     open: "/",
+    fs: { allow: [page("../")] },
   },
   build: {
     target: "es2022",

@@ -1,4 +1,12 @@
+import { createSurfaceAudio } from "./surface-audio.mjs"
+import { createAirSystem } from "../../sistemler/hava.mjs"
+import { createWaterSystem } from "../../sistemler/su.mjs"
+import { connectFirstNight } from "./first-night.mjs"
+import sampleLanding from "../../EMRE-ORNEK-INIS.json"
+import { addSolarFarm } from "./solar-farm.mjs"
 import * as T from "three"
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js"
 import { OrbitControls } from "three/addons/controls/OrbitControls.js"
 
 // DOM Elements
@@ -27,147 +35,10 @@ for (const id of ["days", "recovery", "electrolysis"]) {
 }
 updateBalance()
 
-// ============================================================================
-// CRATER MORPHOLOGY & TERRAIN ELEVATION MATHEMATICS
-// ============================================================================
-// Based on planetary impact crater profiles (Pike, Melosh - Impact Cratering)
-// Overturned rim flap, parabolic/sub-spherical bowl, central rebound peak,
-// radial ejecta hummocks, and micro-impact superposition.
-
-const CRATERS = [
-  // Primary giant impact basins (visible in wide panorama like BBC photo)
-  { cx: -32, cz: -48, r: 72, depth: 18.5, rimH: 5.2, peak: true, rays: 14 },
-  { cx: 48,  cz: 28,  r: 54, depth: 14.0, rimH: 4.2, peak: true, rays: 11 },
-  { cx: -52, cz: 45,  r: 46, depth: 11.5, rimH: 3.6, peak: false, rays: 8 },
-  { cx: 62,  cz: -52, r: 60, depth: 15.5, rimH: 4.6, peak: true, rays: 12 },
-  
-  // Secondary impact craters (scattered across the ridges and terraces)
-  { cx: -12, cz: -14, r: 24, depth: 6.8, rimH: 2.1, peak: false, rays: 6 },
-  { cx: 18,  cz: -28, r: 20, depth: 5.5, rimH: 1.7, peak: false, rays: 5 },
-  { cx: -6,  cz: 32,  r: 22, depth: 5.8, rimH: 1.8, peak: false, rays: 6 },
-  { cx: 32,  cz: -10, r: 18, depth: 4.8, rimH: 1.5, peak: false, rays: 4 },
-  { cx: -68, cz: -8,  r: 28, depth: 7.5, rimH: 2.3, peak: false, rays: 7 },
-  { cx: 14,  cz: 68,  r: 30, depth: 8.2, rimH: 2.5, peak: false, rays: 8 },
-  { cx: 75,  cz: 12,  r: 25, depth: 6.9, rimH: 2.2, peak: false, rays: 6 },
-  
-  // Tertiary impact craters (prominent in midground & walking views)
-  { cx: 6,   cz: -4,  r: 10, depth: 2.8, rimH: 0.95, peak: false },
-  { cx: -20, cz: 14,  r: 13, depth: 3.4, rimH: 1.1, peak: false },
-  { cx: 25,  cz: 40,  r: 14, depth: 3.7, rimH: 1.2, peak: false },
-  { cx: -36, cz: -20, r: 9,  depth: 2.4, rimH: 0.8, peak: false },
-  { cx: 46,  cz: 6,   r: 12, depth: 3.2, rimH: 1.0, peak: false },
-  { cx: -10, cz: -62, r: 16, depth: 4.2, rimH: 1.3, peak: false },
-  { cx: 70,  cz: -18, r: 17, depth: 4.5, rimH: 1.4, peak: false },
-  { cx: -68, cz: 42,  r: 15, depth: 3.9, rimH: 1.2, peak: false },
-  { cx: 0,   cz: 22,  r: 8,  depth: 2.2, rimH: 0.75, peak: false },
-  { cx: -30, cz: 30,  r: 7,  depth: 1.9, rimH: 0.65, peak: false },
-  { cx: 34,  cz: -36, r: 9,  depth: 2.5, rimH: 0.8, peak: false },
-  { cx: 14,  cz: -46, r: 6,  depth: 1.6, rimH: 0.55, peak: false },
-  { cx: -16, cz: -36, r: 8,  depth: 2.1, rimH: 0.7, peak: false },
-  { cx: -50, cz: -56, r: 11, depth: 2.9, rimH: 0.95, peak: false },
-  { cx: 42,  cz: 58,  r: 11, depth: 3.0, rimH: 0.95, peak: false },
-  { cx: -3,  cz: -22, r: 7,  depth: 1.8, rimH: 0.6, peak: false },
-  { cx: -24, cz: -2,  r: 8,  depth: 2.2, rimH: 0.7, peak: false },
-  { cx: 18,  cz: 16,  r: 7,  depth: 1.9, rimH: 0.65, peak: false },
-  { cx: -42, cz: 20,  r: 10, depth: 2.7, rimH: 0.85, peak: false },
-  { cx: 55,  cz: 42,  r: 12, depth: 3.2, rimH: 1.0, peak: false },
-  
-  // Field of small pockmarks near the base
-  { cx: 8,   cz: 8,   r: 4.2, depth: 1.1, rimH: 0.38, peak: false },
-  { cx: -7,  cz: 5,   r: 3.8, depth: 0.95, rimH: 0.32, peak: false },
-  { cx: 3,   cz: -12, r: 4.5, depth: 1.2, rimH: 0.4, peak: false },
-  { cx: -14, cz: -4,  r: 4.0, depth: 1.0, rimH: 0.35, peak: false },
-  { cx: 12,  cz: -2,  r: 3.5, depth: 0.85, rimH: 0.3, peak: false },
-  { cx: -4,  cz: -16, r: 3.2, depth: 0.8, rimH: 0.28, peak: false },
-  { cx: 7,   cz: 18,  r: 4.8, depth: 1.3, rimH: 0.42, peak: false }
-]
-
-// Düz zemin bölgeleri: koloni sahası ve iniş düzlükleri.
-// inner yarıçapında tamamen düz, outer yarıçapına kadar yumuşak geçiş.
-const FLAT_ZONES = [
-  { cx: 0, cz: 0, inner: 36, outer: 60 },      // Koloni sahası (krater tabanı)
-  { cx: -150, cz: 130, inner: 42, outer: 78 }, // Batı iniş düzlüğü
-  { cx: 160, cz: -140, inner: 46, outer: 84 }, // Doğu iniş düzlüğü
-  { cx: 110, cz: 150, inner: 36, outer: 68 },  // Güney ovası
-]
-
-// Kraterlerin dikey etkisi: Mars ovası hissi için yumuşatılmış derinlik
-const CRATER_DEPTH_SCALE = 0.66
-const CRATER_RIM_SCALE = 0.8
-
-function regionalHeight(x, z) {
-  return 4.2 * Math.sin(x * 0.016 + z * 0.012) +
-         2.8 * Math.cos(x * 0.009 - z * 0.021) +
-         1.1 * Math.sin(x * 0.038 - z * 0.031)
-}
-
-// Ham (düzleştirilmemiş) yükseklik
-function rawTerrainHeight(x, z) {
-  let y = regionalHeight(x, z)
-
-  // 2. Accumulate impact crater morphologies
-  for (let i = 0; i < CRATERS.length; i++) {
-    const c = CRATERS[i]
-    const dx = x - c.cx
-    const dz = z - c.cz
-    const d = Math.hypot(dx, dz)
-    const rho = d / c.r
-
-    if (rho < 2.8) {
-      if (rho < 1.0) {
-        const innerSlope = Math.pow(Math.max(0, 1.0 - rho * rho), 0.72)
-        const bowl = -c.depth * innerSlope
-        const rimInfluence = c.rimH * Math.exp(-Math.pow((rho - 1.0) / 0.15, 2))
-
-        let peakH = 0
-        if (c.peak && rho < 0.28) {
-          peakH = (c.depth * 0.42) * Math.exp(-Math.pow(rho / 0.09, 2))
-        }
-
-        y += (bowl + peakH) * CRATER_DEPTH_SCALE + rimInfluence * CRATER_RIM_SCALE
-      } else {
-        const delta = rho - 1.0
-        const angle = Math.atan2(dz, dx)
-        const lobeNoise = 1.0 + 0.14 * Math.cos((c.rays || 7) * angle) +
-                          0.07 * Math.sin((c.rays ? c.rays * 2 : 13) * angle)
-
-        const ejecta = c.rimH * Math.exp(-3.2 * delta) * lobeNoise
-        y += ejecta * CRATER_RIM_SCALE
-      }
-    }
-  }
-
-  // 3. Fine fractal regolith roughness
-  const microNoise = 0.22 * Math.sin(x * 0.95 + z * 0.52) * Math.cos(z * 0.81 - x * 0.44) +
-                     0.10 * Math.sin(x * 2.1 - z * 1.7) * Math.sin(z * 2.4 + x * 1.3) +
-                     0.04 * Math.sin(x * 4.8 + z * 5.1)
-  return y + microNoise
-}
-
-const flatLevels = new Array(FLAT_ZONES.length).fill(null)
-
-// Düz bölgelerin referans kotu: bölge merkezinin ham yüksekliği
-function zoneLevel(index) {
-  if (flatLevels[index] === null) {
-    const zone = FLAT_ZONES[index]
-    flatLevels[index] = rawTerrainHeight(zone.cx, zone.cz)
-  }
-  return flatLevels[index]
-}
-
+// Geniş ova; yüzeydeki ince ayrıntıları regolit dokusu taşır.
 export function getTerrainHeight(x, z) {
-  let y = rawTerrainHeight(x, z)
-
-  for (let i = 0; i < FLAT_ZONES.length; i++) {
-    const zone = FLAT_ZONES[i]
-    const distance = Math.hypot(x - zone.cx, z - zone.cz)
-    if (distance >= zone.outer) continue
-    const t = distance <= zone.inner ? 1 : 1 - (distance - zone.inner) / (zone.outer - zone.inner)
-    const blend = t * t * (3 - 2 * t)
-    y = y * (1 - blend) + zoneLevel(i) * blend
-  }
-
-  return y
+  return .09 * Math.sin(x * .054 + z * .025)
+       + .07 * Math.sin(z * .067 - x * .034)
 }
 
 // ============================================================================
@@ -341,60 +212,6 @@ function generateRegolithTextures(isMoonMode = false, extent = 450) {
     ctx.stroke()
   }
 
-  // 3. Krater çevresinde yumuşak ejecta örtüsü ve soluk ışınlar
-  for (const c of CRATERS) {
-    const pos = worldToTex(c.cx, c.cz)
-    const texRadius = (c.r / (2 * extent)) * size
-
-    const halo = ctx.createRadialGradient(pos.u, pos.v, texRadius * 0.8, pos.u, pos.v, texRadius * 3.0)
-    halo.addColorStop(0, css(pal.ray, isMoonMode ? 0.42 : 0.20))
-    halo.addColorStop(0.45, css(pal.ray, isMoonMode ? 0.22 : 0.10))
-    halo.addColorStop(1, css(pal.ray, 0))
-    ctx.fillStyle = halo
-    ctx.beginPath()
-    ctx.arc(pos.u, pos.v, texRadius * 3.0, 0, Math.PI * 2)
-    ctx.fill()
-
-    const rayCount = c.rays || 8
-    ctx.lineWidth = Math.max(1, (c.r / extent) * size * 0.05)
-    for (let a = 0; a < rayCount; a++) {
-      const angle = (a / rayCount) * Math.PI * 2 + c.cx * 0.1
-      const rayLen = texRadius * (1.5 + 1.1 * Math.sin(a * 3.7))
-      ctx.strokeStyle = css(pal.ray, isMoonMode ? 0.26 : 0.09)
-      ctx.beginPath()
-      ctx.moveTo(pos.u + Math.cos(angle) * texRadius * 0.9, pos.v + Math.sin(angle) * texRadius * 0.9)
-      ctx.lineTo(pos.u + Math.cos(angle) * rayLen, pos.v + Math.sin(angle) * rayLen)
-      ctx.stroke()
-    }
-
-    const floor = ctx.createRadialGradient(pos.u, pos.v, 0, pos.u, pos.v, texRadius)
-    floor.addColorStop(0, css(pal.dark, 0.52))
-    floor.addColorStop(0.72, css(pal.dark, 0.30))
-    floor.addColorStop(1, css(pal.dark, 0))
-    ctx.fillStyle = floor
-    ctx.beginPath()
-    ctx.arc(pos.u, pos.v, texRadius, 0, Math.PI * 2)
-    ctx.fill()
-  }
-
-  // 4. Küçük çarpma çukurları
-  for (let i = 0; i < 700; i++) {
-    const mx = rnd() * size
-    const my = rnd() * size
-    const mr = 1.2 + Math.pow(rnd(), 3) * 9
-
-    ctx.fillStyle = css(pal.dark, 0.18 + rnd() * 0.28)
-    ctx.beginPath()
-    ctx.arc(mx, my, mr, 0, Math.PI * 2)
-    ctx.fill()
-
-    ctx.strokeStyle = css(pal.light, 0.16 + rnd() * 0.22)
-    ctx.lineWidth = Math.max(1, mr * 0.3)
-    ctx.beginPath()
-    ctx.arc(mx, my, mr * 1.05, Math.PI * 0.8, Math.PI * 1.6)
-    ctx.stroke()
-  }
-
   // 5. Çakıl, taş ve toz taneleri (Mars yüzeyinin karakteristik dokusu)
   for (let i = 0; i < 18000; i++) {
     const mx = rnd() * size
@@ -446,7 +263,7 @@ function generateRegolithTextures(isMoonMode = false, extent = 450) {
 // ============================================================================
 // MAIN 3D APPLICATION INITIALIZATION
 // ============================================================================
-async function initCraterEnvironment() {
+async function initMarsEnvironment() {
   const canvas = el("scene")
   const viewport = el("viewport")
   
@@ -460,6 +277,8 @@ async function initCraterEnvironment() {
   renderer.setSize(viewport.clientWidth, viewport.clientHeight, false)
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = T.PCFSoftShadowMap
+  renderer.shadowMap.autoUpdate = false
+  renderer.shadowMap.needsUpdate = true
   renderer.toneMapping = T.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.0
   renderer.outputColorSpace = T.SRGBColorSpace
@@ -468,27 +287,35 @@ async function initCraterEnvironment() {
   scene.background = new T.Color(0x0b0806)
 
   // Mars toz pusu: uzak arazi boğuk bir ufuk çizgisine karışır
-  const fogColor = new T.Color(0xd9a684)
-  scene.fog = new T.FogExp2(fogColor, 0.0042)
+  const fogColor = new T.Color(0xc99e7b)
+  scene.fog = new T.FogExp2(fogColor, 0.004)
 
-  // Tozlu gökyüzü kubbesi (ufukta açık kayısı, zirvede somon)
-  const skyCanvas = document.createElement("canvas")
-  skyCanvas.width = 8
-  skyCanvas.height = 512
-  const skyCtx = skyCanvas.getContext("2d")
-  const skyGradient = skyCtx.createLinearGradient(0, 0, 0, 512)
-  skyGradient.addColorStop(0, "#8d5a45")
-  skyGradient.addColorStop(0.45, "#b87f61")
-  skyGradient.addColorStop(0.75, "#d3a385")
-  skyGradient.addColorStop(1, "#e8c6a6")
-  skyCtx.fillStyle = skyGradient
-  skyCtx.fillRect(0, 0, 8, 512)
-  const skyTexture = new T.CanvasTexture(skyCanvas)
-  skyTexture.colorSpace = T.SRGBColorSpace
-  const skyDome = new T.Mesh(
-    new T.SphereGeometry(1250, 32, 24),
-    new T.MeshBasicMaterial({ map: skyTexture, side: T.BackSide, fog: false, depthWrite: false })
-  )
+  const dustSky = new T.ShaderMaterial({
+    side:T.BackSide, depthWrite:false, fog:false, toneMapped:false,
+    uniforms:{sun:{value:new T.Vector3(86,26,-29).normalize()}},
+    vertexShader:`
+      varying vec3 ray;
+      void main() {
+        ray = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.);
+      }`,
+    fragmentShader:`
+      varying vec3 ray;
+      uniform vec3 sun;
+      void main() {
+        vec3 direction = normalize(ray);
+        float height = smoothstep(-.07,.48,direction.y);
+        float forward = max(0.,dot(direction,sun));
+        float glow = pow(forward,6.)*.54 + pow(forward,25.)*.24;
+        vec3 horizon = vec3(.66,.43,.28);
+        vec3 upper = vec3(.42,.30,.23);
+        vec3 color = mix(horizon,upper,height);
+        color = mix(color,vec3(.86,.66,.51),glow);
+        gl_FragColor = vec4(color,1.);
+        #include <colorspace_fragment>
+      }`
+  })
+  const skyDome = new T.Mesh(new T.SphereGeometry(1250,48,32),dustSky)
   skyDome.name = "MarsSky"
   scene.add(skyDome)
 
@@ -610,18 +437,18 @@ async function initCraterEnvironment() {
   // HARSH SPACE SOLAR LIGHTING & SHADOWS
   // ==========================================================================
   // 1. Directional Sun Light: Low grazing angle to cast dramatic crater shadows
-  const sunLight = new T.DirectionalLight(0xffe2c6, 2.7)
-  sunLight.position.set(-70, 140, 115)
+  const sunLight = new T.DirectionalLight(0xffe0bd, 3.5)
+  sunLight.position.set(86, 26, -29)
   sunLight.castShadow = true
   sunLight.shadow.mapSize.set(2048, 2048)
   sunLight.shadow.camera.near = 10
   sunLight.shadow.camera.far = 400
-  sunLight.shadow.camera.left = -160
-  sunLight.shadow.camera.right = 160
-  sunLight.shadow.camera.top = 160
-  sunLight.shadow.camera.bottom = -160
+  sunLight.shadow.camera.left = -72
+  sunLight.shadow.camera.right = 72
+  sunLight.shadow.camera.top = 72
+  sunLight.shadow.camera.bottom = -72
   sunLight.shadow.bias = -0.0004
-  sunLight.shadow.normalBias = 0.05
+  sunLight.shadow.normalBias = 0.025
   scene.add(sunLight)
 
   // 2. Faint Earthshine / Starlight Ambient
@@ -653,7 +480,7 @@ async function initCraterEnvironment() {
   const terrainMat = new T.MeshStandardMaterial({
     map: albedoTexture,
     bumpMap: bumpTexture,
-    bumpScale: 0.42,
+    bumpScale: 0.10,
     roughness: 1.0,
     metalness: 0.02
   })
@@ -661,13 +488,25 @@ async function initCraterEnvironment() {
   // Yakın planda kum/çakıl tanesini geri getiren tiling detay katmanı.
   // İki farklı ölçekte örneklenir; tekrar deseni böylece görünmez olur.
   const surfaceDetail = generateSurfaceDetailTexture()
+  const photoSource = el("regolith-photo")
+  const regolithPhoto = photoSource
+    ? new T.TextureLoader().load("data:image/jpeg;base64," + photoSource.textContent.trim())
+    : surfaceDetail
+  if (photoSource) {
+    regolithPhoto.colorSpace = T.SRGBColorSpace
+    regolithPhoto.wrapS = regolithPhoto.wrapT = T.MirroredRepeatWrapping
+    regolithPhoto.anisotropy = Math.min(12,renderer.capabilities.getMaxAnisotropy())
+  }
+  const photoWeight = {value:photoSource ? 1 : 0}
   terrainMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uRegolith = {value:regolithPhoto}
+    shader.uniforms.uPhotoWeight = photoWeight
     shader.uniforms.uDetailMap = { value: surfaceDetail }
     shader.uniforms.uDetailScale = { value: 84 }
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",
-        "#include <common>\nuniform sampler2D uDetailMap;\nuniform float uDetailScale;"
+        "#include <common>\nuniform sampler2D uDetailMap;\nuniform float uDetailScale;\nuniform sampler2D uRegolith;\nuniform float uPhotoWeight;"
       )
       .replace(
         "#include <map_fragment>",
@@ -675,7 +514,29 @@ async function initCraterEnvironment() {
         float dA = texture2D(uDetailMap, vMapUv * uDetailScale).r;
         float dB = texture2D(uDetailMap, vMapUv * uDetailScale * 3.17 + vec2(0.37, 0.11)).r;
         float dGrain = dA * 0.66 + dB * 0.34;
-        diffuseColor.rgb *= 0.62 + dGrain * 0.82;`
+        diffuseColor.rgb *= 0.71 + dGrain * 0.60;
+        vec2 meters = (vMapUv - .5) * vec2(620.,-620.);
+        vec2 photoUv = meters / vec2(2.8,2.5) + .10 * sin(meters.yx * .81);
+        vec3 photo = texture2D(uRegolith,photoUv).rgb;
+        vec3 photoWide = texture2D(uRegolith,vec2(.6*meters.x+.8*meters.y,-.8*meters.x+.6*meters.y)/6.1).rgb;
+        float drift = sin(meters.x*.31+sin(meters.y*.19))*sin(meters.y*.22+meters.x*.07);
+        vec3 soil = mix(photo,photoWide,.28)*(1.22 + .16*drift);
+        soil *= .90 + .22*dGrain;
+        float along = meters.y-14.5;
+        float center = 5.75 + along*.20 + .006*along*along;
+        float wheels = abs(abs(meters.x-center)-1.03);
+        float trace = 1.-smoothstep(.10,.26,wheels);
+        float tread = smoothstep(.22,.76,sin(along*48.+meters.x*11.));
+        trace *= smoothstep(-1.,.25,along)*(1.-smoothstep(23.,29.,along));
+        soil *= 1.-trace*(.095 + tread*.11);
+        vec2 drill = meters - vec2(60.7,-26.8);
+        float outline = length(drill/vec2(3.8,2.6)) + .10*sin(drill.x*6.+drill.y*4.) + .10*dGrain;
+        float icePatch = 1.-smoothstep(.52,1.03,outline);
+        float veins = sin(drill.x*8.+sin(drill.y*6.)*1.65+drill.y*3.);
+        float frost = smoothstep(.11,.78,veins*.38 + photo.r*.85 + .28);
+        vec3 icySoil = mix(soil*.83,vec3(.58,.65,.69),frost*.72);
+        soil = mix(soil,icySoil,icePatch);
+        diffuseColor.rgb = mix(diffuseColor.rgb,soil,uPhotoWeight);`
       )
   }
   terrainMat.customProgramCacheKey = () => "mars-regolith-detail-v1"
@@ -705,7 +566,7 @@ async function initCraterEnvironment() {
       const angle = (i / 54) * Math.PI * 2 + hRnd() * 0.09
       const radius = baseRadius + hRnd() * (ring === 0 ? 55 : 90)
       const width = (ring === 0 ? 34 : 60) + hRnd() * (ring === 0 ? 45 : 80)
-      const height = (ring === 0 ? 6 : 11) + hRnd() * (ring === 0 ? 12 : 22)
+      const height = (ring === 0 ? 3 : 6) + hRnd() * (ring === 0 ? 5 : 11)
       const mound = new T.Mesh(moundGeo, ring === 0 ? hillMat : hillMatFar)
       mound.scale.set(width, height, width * (0.5 + hRnd() * 0.5))
       mound.position.set(Math.cos(angle) * radius, -height * 0.18, Math.sin(angle) * radius)
@@ -721,12 +582,40 @@ async function initCraterEnvironment() {
   // ==========================================================================
   // Mars taş tarlası: iri kayalar, yassı tabakalar ve çakıl
   const rockMat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0.03, flatShading: true })
-  const slabMat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0.02 })
-  const pebbleMat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0.02, flatShading: true })
+  function fracturedRock(seed, flat) {
+    const geometry = new T.IcosahedronGeometry(1,2)
+    const position = geometry.attributes.position
+    for (let i=0;i<position.count;i++) {
+      const x=position.getX(i), y=position.getY(i), z=position.getZ(i)
+      const wear=1+.13*Math.sin(x*5.3+y*3.7+seed)*Math.cos(z*4.7-y*3.1)
+      const top=flat ? .56+.19*x-.09*z : .83+.24*x+.15*z
+      position.setXYZ(i,x*wear+.16*y,Math.max(-.73,Math.min(y*wear,top)),z*wear)
+    }
+    geometry.computeVertexNormals()
+    return geometry
+  }
+
+  rockMat.onBeforeCompile = shader => {
+    shader.vertexShader="varying vec3 rockPoint;\n"+shader.vertexShader
+    shader.vertexShader=shader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nrockPoint=position;")
+    shader.fragmentShader="varying vec3 rockPoint;\n"+shader.fragmentShader
+    shader.fragmentShader=shader.fragmentShader.replace("#include <color_fragment>",`
+      #include <color_fragment>
+      vec3 p = rockPoint;
+      float erosion=sin(p.y*43.+sin(p.x*8.+p.z*7.)*.62);
+      float grains=sin(dot(p,vec3(87.,131.,111.)))*sin(dot(p,vec3(153.,-123.,187.)));
+      float bed=smoothstep(.58,.98,erosion);
+      diffuseColor.rgb *= .89 + bed*.22 + grains*.13;
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb*vec3(1.31,1.18,1.03),
+        .38*(1.-smoothstep(-.72,.05,p.y)));
+    `)
+  }
+  const pebbleMat = new T.MeshStandardMaterial({color:0xffffff,roughness:.96,flatShading:true})
 
   const dummy = new T.Object3D()
   const tint = new T.Color()
   const rockLayers = []
+  const rockObstacles = []
 
   let rSeed = 8831
   function rRnd() {
@@ -735,40 +624,39 @@ async function initCraterEnvironment() {
   }
 
   function scatterRocks(mesh, count, options) {
+    mesh.geometry.computeBoundingBox()
+    const geometryBounds=mesh.geometry.boundingBox
     const tints = []
     let placed = 0
     let guard = 0
     while (placed < count && guard < count * 20) {
       guard++
-      let x, z
-      if (rRnd() < 0.65) {
-        const angle = rRnd() * Math.PI * 2
-        const radius = Math.sqrt(rRnd()) * options.radius
-        x = Math.cos(angle) * radius
-        z = Math.sin(angle) * radius
-      } else {
-        const c = CRATERS[Math.floor(rRnd() * CRATERS.length)]
-        const angle = rRnd() * Math.PI * 2
-        const distance = c.r * (0.75 + rRnd() * 0.7)
-        x = c.cx + Math.cos(angle) * distance
-        z = c.cz + Math.sin(angle) * distance
-      }
+      const angle = rRnd() * Math.PI * 2
+      const radius = Math.sqrt(rRnd()) * options.radius
+      const x = Math.cos(angle) * radius
+      const z = Math.sin(angle) * radius
+      const patches=.5+.5*Math.sin(x*.17+Math.sin(z*.14)*1.7)*Math.cos(z*.16-x*.11)
+      if (rRnd() > .32+.68*patches) continue
       // Üssün oturduğu alanı boş bırak
       if (Math.hypot(x, z) < options.pad) continue
 
       const scale = options.minScale + Math.pow(rRnd(), 2.6) * (options.maxScale - options.minScale)
-      dummy.position.set(x, getTerrainHeight(x, z) + scale * (0.32 - options.bury), z)
+      dummy.position.set(x, getTerrainHeight(x, z) + scale * (0.51 * options.flat - options.bury), z)
       const tilt = options.tilt === undefined ? Math.PI : options.tilt
       dummy.rotation.set((rRnd() - 0.5) * tilt, rRnd() * Math.PI * 2, (rRnd() - 0.5) * tilt)
       dummy.scale.set(scale, scale * options.flat * (0.5 + rRnd() * 0.6), scale * (0.7 + rRnd() * 0.6))
       dummy.updateMatrix()
       mesh.setMatrixAt(placed, dummy.matrix)
+      if (scale>.32 && options.maxScale>.26) {
+        const bounds=geometryBounds.clone().applyMatrix4(dummy.matrix)
+        if(bounds.max.y-getTerrainHeight(x,z)>.095) rockObstacles.push(bounds)
+      }
       tints.push({ pick: Math.floor(rRnd() * options.palette.length), light: (rRnd() - 0.5) * 0.12 })
       placed++
     }
     mesh.count = placed
     mesh.instanceMatrix.needsUpdate = true
-    mesh.castShadow = true
+    mesh.castShadow = options.maxScale > .26
     mesh.receiveShadow = true
     mesh.userData.tints = tints
     mesh.userData.palette = options.palette
@@ -794,12 +682,16 @@ async function initCraterEnvironment() {
   const MARS_SLAB_COLORS = [0x8f6a56, 0xa07c65, 0x7a5746, 0xb19079, 0x6d4d3f]
   const MARS_PEBBLE_COLORS = [0x7d5747, 0x96705a, 0xa9876d, 0x6a4a3c]
 
-  scatterRocks(new T.InstancedMesh(new T.DodecahedronGeometry(1, 1), rockMat, 1500), 1500, {
-    minScale: 0.16, maxScale: 1.9, flat: 1, radius: 280, bury: 0.34, pad: 30, palette: MARS_ROCK_COLORS,
-  })
-  scatterRocks(new T.InstancedMesh(new T.BoxGeometry(1, 1, 1, 2, 1, 2), slabMat, 1100), 1100, {
-    minScale: 0.4, maxScale: 2.6, flat: 0.16, radius: 240, bury: 0.42, pad: 28, palette: MARS_SLAB_COLORS, tilt: 0.22,
-  })
+  for (const seed of [2,7,12]) {
+    const slabs=seed!==7
+    const count=slabs?380:680
+    scatterRocks(new T.InstancedMesh(fracturedRock(seed,slabs),rockMat,count),count,{
+      minScale:slabs?.15:.18, maxScale:slabs?1.75:1.5,
+      flat:slabs?.33:.72, radius:seed===12?112:245,
+      bury:.25, pad:slabs?15:25,
+      palette:slabs?MARS_SLAB_COLORS:MARS_ROCK_COLORS, tilt:slabs?.45:.65
+    })
+  }
   scatterRocks(new T.InstancedMesh(new T.DodecahedronGeometry(1, 0), pebbleMat, 12000), 12000, {
     minScale: 0.035, maxScale: 0.26, flat: 0.7, radius: 140, bury: 0.42, pad: 12, palette: MARS_PEBBLE_COLORS, tilt: 1.1,
   })
@@ -814,6 +706,7 @@ async function initCraterEnvironment() {
   // ==========================================================================
   const colonyGroup = new T.Group()
   const baseObstacles = []
+  const indoorObstacles = []
 
   function placeBaseItem(object, x, z, yaw = 0) {
     const y = getTerrainHeight(x, z)
@@ -833,266 +726,307 @@ async function initCraterEnvironment() {
     return object
   }
 
-  // 1. Habitat Demonstration Unit (NASA HDU)
-  function createHabitatModule() {
-    const group = new T.Group()
-    
-    // Main cylindrical body
-    const bodyGeo = new T.CylinderGeometry(3.6, 3.6, 4.2, 24)
-    const bodyMat = new T.MeshStandardMaterial({
-      color: 0xdededf,
-      roughness: 0.35,
-      metalness: 0.45
-    })
-    const body = new T.Mesh(bodyGeo, bodyMat)
-    body.position.y = 2.1
-    group.add(body)
-
-    // Top dome
-    const domeGeo = new T.SphereGeometry(3.6, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2)
-    const dome = new T.Mesh(domeGeo, bodyMat)
-    dome.position.y = 4.2
-    group.add(dome)
-
-    // Airlock module
-    const airlockGeo = new T.BoxGeometry(2.2, 2.4, 2.8)
-    const airlockMat = new T.MeshStandardMaterial({ color: 0x42464d, roughness: 0.6, metalness: 0.5 })
-    const airlock = new T.Mesh(airlockGeo, airlockMat)
-    airlock.position.set(0, 1.2, 3.8)
-    group.add(airlock)
-
-    // Foundation support legs
-    const legMat = new T.MeshStandardMaterial({ color: 0xb58b2e, metalness: 0.8, roughness: 0.3 })
-    for (let i = 0; i < 6; i++) {
-      const angle = (i / 6) * Math.PI * 2
-      const leg = new T.Mesh(new T.CylinderGeometry(0.12, 0.22, 1.6), legMat)
-      leg.position.set(Math.cos(angle) * 3.5, 0.4, Math.sin(angle) * 3.5)
-      group.add(leg)
-    }
-
-    return group
+  // Panelized weather covers, low service decks and recessed airlocks.
+  const sand = new T.MeshStandardMaterial({vertexColors:true, roughness:.82})
+  const steel = new T.MeshStandardMaterial({color:0x686056, metalness:.45, roughness:.58})
+  const deckMat = new T.MeshStandardMaterial({color:0x76634e, roughness:.94})
+  const hatchMat = new T.MeshStandardMaterial({color:0x827465, roughness:.63, metalness:.22})
+  const seal = new T.MeshStandardMaterial({color:0xc0a688, roughness:.7})
+  function mesh(group, geometry, material, x,y,z){
+    const part = new T.Mesh(geometry,material)
+    part.position.set(x,y,z)
+    group.add(part)
+    return part
   }
-  placeBaseItem(createHabitatModule(), 0, 0, 0.2)
 
-  // 2. Hydroponic Greenhouse Dome (Sera Ünitesi)
-  function createGreenhouseDome() {
-    const group = new T.Group()
-    
-    // Base ring
-    const ring = new T.Mesh(
-      new T.CylinderGeometry(4.2, 4.4, 0.8, 24),
-      new T.MeshStandardMaterial({ color: 0x383a3f, roughness: 0.7 })
-    )
-    ring.position.y = 0.4
-    group.add(ring)
-
-    // Translucent glass dome
-    const dome = new T.Mesh(
-      new T.SphereGeometry(4.2, 24, 18, 0, Math.PI * 2, 0, Math.PI / 2),
-      new T.MeshStandardMaterial({
-        color: 0x6ed4ff,
-        transparent: true,
-        opacity: 0.55,
-        roughness: 0.15,
-        metalness: 0.3
-      })
-    )
-    dome.position.y = 0.8
-    group.add(dome)
-
-    // Glowing interior plant grow LED light (warm purple / photosynthetic magenta)
-    const growLight = new T.PointLight(0xff55bb, 3.5, 14)
-    growLight.position.set(0, 2.6, 0)
-    group.add(growLight)
-
-    // Hydroponic vertical crop trays inside
-    const trayMat = new T.MeshStandardMaterial({ color: 0x228833, roughness: 0.8 })
-    for (let r = 0; r < 4; r++) {
-      const angle = (r / 4) * Math.PI * 2
-      const tray = new T.Mesh(new T.BoxGeometry(0.8, 1.8, 1.6), trayMat)
-      tray.position.set(Math.cos(angle) * 2.2, 1.4, Math.sin(angle) * 2.2)
-      tray.rotation.y = angle
-      group.add(tray)
-    }
-
-    return group
+  const points = []
+  const colors = []
+  const panelColor = new T.Color()
+  const sectors = 28
+  const rings = [[3.65,0],[3.65,.50],[3.56,.92],[3.33,1.51],[3.02,2.12],[2.55,2.65],[1.87,3.05],[1.03,3.31]]
+  function vertex(row,index){
+    const [radius,y] = rings[row]
+    const angle = (index + (row%2)*.5)*Math.PI*2/sectors
+    return [radius*Math.cos(angle),y,radius*Math.sin(angle)]
   }
-  placeBaseItem(createGreenhouseDome(), 12, -4, 0.4)
-
-  // 3. ECLSS Water Recovery & Sabatier Air Recycler
-  function createECLSSModule() {
-    const group = new T.Group()
-    
-    const container = new T.Mesh(
-      new T.BoxGeometry(3.2, 2.2, 2.4),
-      new T.MeshStandardMaterial({ color: 0x2a2f38, roughness: 0.5, metalness: 0.6 })
-    )
-    container.position.y = 1.1
-    group.add(container)
-
-    // Pressurized water storage tanks
-    const tankGeo = new T.CylinderGeometry(0.65, 0.65, 2.6, 16)
-    const tankMat = new T.MeshStandardMaterial({ color: 0x2a75d3, metalness: 0.7, roughness: 0.25 })
-    
-    const tank1 = new T.Mesh(tankGeo, tankMat)
-    tank1.position.set(-0.9, 1.3, 1.3)
-    group.add(tank1)
-    
-    const tank2 = new T.Mesh(tankGeo, tankMat)
-    tank2.position.set(0.9, 1.3, 1.3)
-    group.add(tank2)
-
-    return group
+  function panel(a,b,c){
+    panelColor.setHex(0xbeb2a1).multiplyScalar(.975+.025*(.5+.5*Math.sin(points.length*13.19)))
+    points.push(...a,...b,...c)
+    for(let i=0;i<3;i++) colors.push(panelColor.r,panelColor.g,panelColor.b)
   }
-  placeBaseItem(createECLSSModule(), 8, 8, -0.3)
-
-  // 4. Solar Array Farm (Güneş Paneli Dizisi)
-  function createSolarArray() {
-    const group = new T.Group()
-    
-    const mast = new T.Mesh(
-      new T.CylinderGeometry(0.18, 0.22, 3.6, 12),
-      new T.MeshStandardMaterial({ color: 0x666b73, metalness: 0.8 })
-    )
-    mast.position.y = 1.8
-    group.add(mast)
-
-    // Tilted dual solar wings
-    const panelGeo = new T.BoxGeometry(4.8, 0.1, 2.2)
-    const panelMat = new T.MeshStandardMaterial({
-      color: 0x112244,
-      metalness: 0.9,
-      roughness: 0.18
-    })
-    const panel = new T.Mesh(panelGeo, panelMat)
-    panel.position.set(0, 3.6, 0)
-    panel.rotation.x = 0.42 // Tilted toward solar incident vector
-    panel.rotation.y = 0.55
-    group.add(panel)
-
-    return group
-  }
-  placeBaseItem(createSolarArray(), -10, 8, 0.1)
-  placeBaseItem(createSolarArray(), -16, 12, 0.1)
-
-  // 5. High-Gain Communications Dish Antenna
-  function createCommsDish() {
-    const group = new T.Group()
-    
-    const pylon = new T.Mesh(new T.CylinderGeometry(0.25, 0.35, 4.2), new T.MeshStandardMaterial({ color: 0x555a62, metalness: 0.7 }))
-    pylon.position.y = 2.1
-    group.add(pylon)
-
-    // Parabolic dish pointing up toward Earth
-    const dish = new T.Mesh(
-      new T.SphereGeometry(2.2, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2.8),
-      new T.MeshStandardMaterial({ color: 0xeeeeee, metalness: 0.6, roughness: 0.3, side: T.DoubleSide })
-    )
-    dish.position.set(0, 4.4, 0)
-    dish.rotation.x = -0.6
-    dish.rotation.y = -0.8
-    group.add(dish)
-
-    return group
-  }
-  placeBaseItem(createCommsDish(), -8, -12, 0.5)
-
-  // 6. Lunar / Planetary Rover (Keşif Aracı)
-  function createRoverModel() {
-    const group = new T.Group()
-    
-    const chassis = new T.Mesh(new T.BoxGeometry(2.8, 0.8, 1.8), new T.MeshStandardMaterial({ color: 0xb58b2e, metalness: 0.6, roughness: 0.4 }))
-    chassis.position.y = 0.9
-    group.add(chassis)
-
-    // 6 wheels
-    const wheelGeo = new T.CylinderGeometry(0.42, 0.42, 0.36, 16)
-    const wheelMat = new T.MeshStandardMaterial({ color: 0x222225, roughness: 0.9 })
-    wheelGeo.rotateZ(Math.PI / 2)
-
-    for (const wx of [-1.1, 0, 1.1]) {
-      for (const wz of [-1.1, 1.1]) {
-        const w = new T.Mesh(wheelGeo, wheelMat)
-        w.position.set(wx, 0.42, wz)
-        group.add(w)
+  for(let row=0;row<rings.length-1;row++){
+    for(let col=0;col<sectors;col++){
+      const lower=vertex(row,col)
+      const next=vertex(row,col+1)
+      const upper=vertex(row+1,col)
+      const offset=vertex(row+1,col+(row%2?-1:1))
+      if(row%2){
+        panel(lower,offset,upper)
+        panel(lower,upper,next)
+      }else{
+        panel(lower,upper,next)
+        panel(next,upper,offset)
       }
     }
-
-    // Science mast & camera
-    const mast = new T.Mesh(new T.CylinderGeometry(0.06, 0.08, 1.6), new T.MeshStandardMaterial({ color: 0x444444 }))
-    mast.position.set(1.0, 1.7, 0.4)
-    group.add(mast)
-    
-    const camHead = new T.Mesh(new T.BoxGeometry(0.3, 0.2, 0.35), new T.MeshStandardMaterial({ color: 0x111111 }))
-    camHead.position.set(1.0, 2.5, 0.4)
-    group.add(camHead)
-
-    return group
   }
-  placeBaseItem(createRoverModel(), 6, -12, -0.6)
+  for(let col=0;col<sectors;col++) panel(vertex(rings.length-1,col),[0,3.49,0],vertex(rings.length-1,col+1))
+  const shell = new T.BufferGeometry()
+  shell.setAttribute("position",new T.Float32BufferAttribute(points,3))
+  shell.setAttribute("color",new T.Float32BufferAttribute(colors,3))
+  const normals = []
+  for (let i=0;i<points.length;i+=3) {
+    const normal = new T.Vector3(points[i],points[i+1]*1.16,points[i+2]).normalize()
+    normals.push(normal.x,normal.y,normal.z)
+  }
+  shell.setAttribute("normal",new T.Float32BufferAttribute(normals,3))
 
-  // 7. Astronaut Figures (EVA Spacesuit Models)
-  function createAstronaut(color = 0xdddddf) {
-    const group = new T.Group()
-    const suitMat = new T.MeshStandardMaterial({ color, roughness: 0.65 })
-    const visorMat = new T.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.95, roughness: 0.1 }) // Gold reflective visor
-
-    // Torso & PLSS Backpack
-    const torso = new T.Mesh(new T.BoxGeometry(0.65, 0.85, 0.45), suitMat)
-    torso.position.y = 1.2
-    group.add(torso)
-    
-    const backpack = new T.Mesh(new T.BoxGeometry(0.5, 0.7, 0.32), new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }))
-    backpack.position.set(0, 1.25, -0.35)
-    group.add(backpack)
-
-    // Helmet & Gold Visor
-    const helmet = new T.Mesh(new T.SphereGeometry(0.28, 16, 16), suitMat)
-    helmet.position.set(0, 1.82, 0)
-    group.add(helmet)
-
-    const visor = new T.Mesh(new T.SphereGeometry(0.24, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), visorMat)
-    visor.position.set(0, 1.82, 0.08)
-    visor.rotation.x = Math.PI / 2
-    group.add(visor)
-
-    // Legs
-    for (const lx of [-0.18, 0.18]) {
-      const leg = new T.Mesh(new T.CylinderGeometry(0.12, 0.14, 0.75), suitMat)
-      leg.position.set(lx, 0.42, 0)
-      group.add(leg)
+  const leg=new T.BoxGeometry(.25,1,.25)
+  const foot=new T.BoxGeometry(.65,.12,.65)
+  const collar=new T.CylinderGeometry(3.65,3.66,.24,32)
+  const centers = [-9, 0, 9]
+  const radius = 3.65
+  const locks = []
+  const waterSite = {x:64,z:-26}
+  const floorY = Math.max(...centers.flatMap(x => [-3.8,3.8].flatMap(dx =>
+    [-3.65,3.65].map(z => getTerrainHeight(x+dx,z))))) + .34
+  const interior = new T.MeshStandardMaterial({color:0xcac2b1,roughness:.86})
+  const fabric = new T.MeshStandardMaterial({color:0x87948f,roughness:1})
+  const rack = new T.MeshStandardMaterial({color:0x666e70,roughness:.49,metalness:.36})
+  const glazing = new T.MeshPhysicalMaterial({
+    color:0x97bdc4,transparent:true,opacity:.34,roughness:.12,metalness:.15,side:T.DoubleSide,depthWrite:false
+  })
+  const light = new T.MeshBasicMaterial({color:0xffe9bd})
+  function block(group,w,h,d,material,x,y,z){
+    return mesh(group,new T.BoxGeometry(w,h,d),material,x,y,z)
+  }
+  function wallWithPorts(index){
+    const material=sand.clone()
+    material.side=T.DoubleSide
+    material.onBeforeCompile=shader=>{
+      shader.vertexShader="varying vec3 habitatPosition;\n"+shader.vertexShader
+      shader.vertexShader=shader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nhabitatPosition=position;")
+      const ports=["(habitatPosition.z > 2.15 && abs(habitatPosition.x) < .82 && habitatPosition.y < 2.19)"]
+      if(index>0) ports.push("(habitatPosition.x < -2.4 && abs(habitatPosition.z) < .94 && habitatPosition.y < 2.44)")
+      if(index<2) ports.push("(habitatPosition.x > 2.4 && abs(habitatPosition.z) < .94 && habitatPosition.y < 2.44)")
+      ports.push("(habitatPosition.z > 2.3 && length((habitatPosition.xy-vec2(-1.24,1.56))/vec2(.32,.24))<1.0)")
+      ports.push("(habitatPosition.z > 2.3 && length((habitatPosition.xy-vec2(1.24,1.56))/vec2(.32,.24))<1.0)")
+      shader.fragmentShader="varying vec3 habitatPosition;\n"+shader.fragmentShader
+      shader.fragmentShader=shader.fragmentShader.replace("#include <color_fragment>",`
+        #include <color_fragment>
+        vec3 p=habitatPosition;
+        float grit=sin(dot(p,vec3(212.,331.,177.)))*sin(dot(p,vec3(153.,-287.,227.)));
+        float runoff=sin(29.*p.x+31.*p.z+sin(7.*p.z))*.5+.5;
+        float dust=(1.-smoothstep(.17,1.4,p.y))*(.38+.62*runoff);
+        diffuseColor.rgb *= 1. + grit*.047 - dust*.16;
+        diffuseColor.rgb = mix(diffuseColor.rgb,diffuseColor.rgb*vec3(1.13,.94,.78),dust*.42);
+      `)
+      shader.fragmentShader=shader.fragmentShader.replace("#include <clipping_planes_fragment>",
+        "#include <clipping_planes_fragment>\nif("+ports.join(" || ")+")discard;")
     }
-
-    return group
+    material.customProgramCacheKey=()=> "habitat-"+index
+    return material
   }
-  placeBaseItem(createAstronaut(), 2.4, 4.2, -0.8)
-  placeBaseItem(createAstronaut(), 3.6, 5.0, -1.2)
+  for(const [index,x] of centers.entries()){
+    const group=new T.Group()
+    group.position.set(x,floorY,0)
+    block(group,8.2,.18,8.2,deckMat,0,-.11,0)
+    mesh(group,collar,seal,0,-.11,0)
+    mesh(group,shell,wallWithPorts(index),0,0,0).scale.y = index===1 ? 1.28 : .94
+    for(const dx of [-3.75,3.75]) for(const z of [-3.75,3.75]){
+      const base=getTerrainHeight(x+dx,z)-floorY
+      const height=Math.max(.08,-base-.14)
+      mesh(group,leg,steel,dx,base+height/2,z).scale.y=height
+      mesh(group,foot,deckMat,dx,base+.035,z)
+    }
+    const shellHeight = index===1 ? 1.28 : .94
+    const seamMat = new T.MeshStandardMaterial({color:0x988779, roughness:.9})
+    for (const ringIndex of [2,4,6]) {
+      const [r,y]=rings[ringIndex]
+      const seam=mesh(group,new T.TorusGeometry(r-.007,.013,5,72),seamMat,0,y*shellHeight,0)
+      seam.rotation.x=Math.PI/2
+    }
+    const stripe=new T.MeshStandardMaterial({color:0x485962,roughness:.79})
+    mesh(group,new T.CylinderGeometry(3.659,3.661,.115,48,1,true),stripe,0,.46,0)
+    for(let i=0;i<10;i++){
+      const angle=i*Math.PI/5
+      const brace=block(group,.12,.53,.047,steel,3.58*Math.cos(angle),.54,3.58*Math.sin(angle))
+      brace.rotation.y=Math.PI/2-angle
+    }
+    for (let i=0; i<sectors; i++) {
+      const a=i*Math.PI*2/sectors
+      const fastener=mesh(group,new T.BoxGeometry(.048,.06,.025),steel,3.64*Math.cos(a),.38,3.64*Math.sin(a))
+      fastener.rotation.y=Math.PI/2-a
+    }
+    for(const side of [-1,1]){
+      const bezel=mesh(group,new T.TorusGeometry(.29,.047,8,28),steel,side*1.24,1.56*(index===1?1.28:.94),3.08)
+      bezel.scale.x=1.17
+      const window=mesh(group,new T.SphereGeometry(1,24,16),glazing,side*1.24,1.56*(index===1?1.28:.94),3.02)
+      window.scale.set(.35,.27,.47)
+    }
+    block(group,1.7,.055,.22,light,0,2.83,-.5)
+    const lamp=new T.PointLight(0xffe6b8,10,6)
+    lamp.position.set(0,2.65,-.35)
+    group.add(lamp)
+    const furnishingsStart=group.children.length
+    if(index===0){
+      // Orion-inspired sleeping bags secured against the cabin wall.
+      for(const offset of [-1,0,1]){
+        block(group,.66,1.75,.21,fabric,offset,1.02,-2.38)
+        block(group,.74,.11,.43,rack,offset,.13,-2.38)
+      }
+    }else if(index===1){
+      // Orion-style stowage, food warmer and potable-water dispenser.
+      block(group,2.3,1.05,.63,interior,0,.53,-2.45)
+      block(group,.55,.29,.39,rack,-.66,1.2,-2.43)
+      block(group,.44,.52,.32,rack,.61,1.31,-2.51)
+      block(group,.13,.1,.13,steel,.61,1.15,-2.29)
+    }else{
+      // ISS-style equipment racks for water recovery and cabin air treatment.
+      for(const offset of [-.62,.62]){
+        block(group,1.1,1.82,.62,interior,offset,.91,-2.25)
+        for(const y of [.43,.85,1.27,1.61]) block(group,.83,.22,.045,rack,offset,y,-1.93)
+      }
+    }
+    group.updateMatrixWorld(true)
+    for(const furniture of group.children.slice(furnishingsStart)) {
+      indoorObstacles.push(new T.Box3().setFromObject(furniture))
+    }
+    if(index===1){
+      mesh(group,new T.CylinderGeometry(.025,.038,1.58,12),steel,-.5,5.08,-.18)
+      mesh(group,new T.CylinderGeometry(.05,.064,.81,12),steel,.42,4.7,-.35)
+    }
+    const chamber = new T.Group()
+    group.add(chamber)
+    block(chamber,1.94,.16,2.28,deckMat,0,-.08,4.01)
+    block(chamber,1.94,.16,2.28,seal,0,2.13,4.01)
+    for (const side of [-1,1]) {
+      block(chamber,.14,2.12,2.28,seal,side*.91,1.06,4.01)
+    }
+    const makeHatch = z => {
+      const frame = new T.Group()
+      frame.position.z = z
+      chamber.add(frame)
+      for (const side of [-1,1]) block(frame,.16,2.13,.18,steel,side*.81,1.07,0)
+      block(frame,1.79,.15,.18,steel,0,2.08,0)
+      const leaf = new T.Group()
+      frame.add(leaf)
+      for (const side of [-1,1]) block(leaf,.55,1.98,.11,hatchMat,side*.52,1.00,0)
+      block(leaf,.5,.64,.11,hatchMat,0,1.66,0)
+      block(leaf,.5,.99,.11,hatchMat,0,.50,0)
+      block(leaf,.49,.31,.045,glazing,0,1.147,0)
+      block(leaf,.28,.054,.10,steel,.29,.88,.07)
+      return leaf
+    }
+    const lock = { x, inner:makeHatch(2.92), outer:makeHatch(5.12) }
+    locks.push(lock)
+    for(const z of [3.24,4.86]) block(chamber,.45,.05,.14,light,0,2.03,z)
+    const chamberLight = new T.PointLight(0xffdeb0,3,3.6)
+    chamberLight.position.set(0,1.95,4)
+    chamber.add(chamberLight)
+    const footY=getTerrainHeight(x,6.65)+.02
+    lock.rampFootY=footY
+    const ramp=block(colonyGroup,1.55,.12,Math.hypot(1.53,floorY-footY),deckMat,x,(floorY+footY)/2,5.885)
+    ramp.rotation.x=Math.atan2(floorY-footY,1.53)
+    ramp.castShadow=ramp.receiveShadow=true
+    group.traverse(part=>{if(part.isMesh && part.material!==glazing){part.castShadow=true;part.receiveShadow=true}})
+    colonyGroup.add(group)
+  }
+  const tunnelMaterial=new T.MeshStandardMaterial({color:0xa5a59c,roughness:.66,metalness:.26,side:T.DoubleSide})
+  for(const x of [-4.5,4.5]){
+    const tube=mesh(colonyGroup,new T.CylinderGeometry(1.27,1.27,4.05,32,1,true),tunnelMaterial,x,floorY+1.19,0)
+    tube.rotation.z=Math.PI/2
+    tube.castShadow=tube.receiveShadow=true
+    block(colonyGroup,4.1,.14,1.57,deckMat,x,floorY-.025,0)
+    for(const dx of [-1.65,-1.1,-.55,0,.55,1.1,1.65]){
+      mesh(colonyGroup,new T.TorusGeometry(1.275,.044,8,32),steel,x+dx,floorY+1.19,0).rotation.y=Math.PI/2
+    }
+  }
+  const insideZone=(x,z)=>centers.some(cx=>Math.hypot(x-cx,z)<radius-.33)
+    || (Math.abs(z)<.73 && Math.abs(x)<9)
+  const outsideObstacle=(x,z)=>centers.some(cx=>Math.hypot(x-cx,z)<radius+.25)
+    || (Math.abs(z)<1.46 && Math.abs(x)<9)
+    || locks.some(lock=>Math.abs(x-lock.x)<1.14 && z>2.85 && z<5.34)
+
+  const mast = new T.Group()
+  const mastRod = new T.CylinderGeometry(.033,.044,1,8)
+  const guyWire = (start,end) => {
+    const direction = end.clone().sub(start)
+    const rod = mesh(mast,mastRod,steel,...start.clone().lerp(end,.5).toArray())
+    rod.scale.y = direction.length()
+    rod.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),direction.normalize())
+  }
+  for (let bay=0;bay<8;bay++) for (const side of [-1,1]) {
+    guyWire(new T.Vector3(side*.26,bay,.0),new T.Vector3(side*.26,bay+1,.0))
+    guyWire(new T.Vector3(side*.26,bay,.0),new T.Vector3(-side*.26,bay+1,.0))
+  }
+  for (const dx of [-2.2,2.2]) {
+    const anchorY=getTerrainHeight(-14+dx,-1)-getTerrainHeight(-14,-1)
+    guyWire(new T.Vector3(dx,anchorY,0),new T.Vector3(0,6.5,0))
+    block(mast,.15,1,.26,seal,dx/4,7.1,.08)
+  }
+  mesh(mast,mastRod,steel,0,8.6,0).scale.y=1.4
+  placeBaseItem(mast,-14,-1)
+  const solar = addSolarFarm(T, scene, getTerrainHeight, baseObstacles)
+
   scene.add(colonyGroup)
+  const systems = el("first-night") ? [
+    createAirSystem(scene,{x:19,z:5,heightAt:getTerrainHeight}),
+    createWaterSystem(scene,{...waterSite,heightAt:getTerrainHeight})
+  ] : []
+  for (const {group} of systems) {
+    group.traverse(part=>{if(part.isMesh){part.castShadow=true;part.receiveShadow=true}})
+    baseObstacles.push(new T.Box3().setFromObject(group).expandByScalar(.25))
+  }
+  if (systems.length) connectFirstNight(...systems,sampleLanding)
+  const portraitAssets = el("scene-rover")
+  if (portraitAssets) {
+    const assetBytes = id => Uint8Array.from(atob(el(id).textContent.trim()), char=>char.charCodeAt(0)).buffer
+    const wrapper = URL.createObjectURL(new Blob([el("scene-decoder").textContent],{type:"text/javascript"}))
+    const wasm = URL.createObjectURL(new Blob([assetBytes("scene-wasm")],{type:"application/wasm"}))
+    const draco = new DRACOLoader().setDecoderPath({js:wrapper,wasm})
+    const loader = new GLTFLoader().setDRACOLoader(draco)
+    const load = async (id,height,point,yaw) => {
+      const {scene:model}=await loader.parseAsync(assetBytes(id),"")
+      const bounds=new T.Box3().setFromObject(model)
+      const size=bounds.getSize(new T.Vector3())
+      const center=bounds.getCenter(new T.Vector3())
+      const scale=height/size.y
+      model.scale.multiplyScalar(scale)
+      model.position.multiplyScalar(scale).add(new T.Vector3(-center.x*scale,-bounds.min.y*scale,-center.z*scale))
+      for(const [x,z] of point){
+        const group=new T.Group()
+        group.add(model.clone())
+        placeBaseItem(group,x,z,yaw)
+        renderer.shadowMap.needsUpdate = true
+      }
+    }
+    Promise.allSettled([load("scene-rover",2.18,[[5.75,14.5]],-.6),
+      load("scene-suit",1.85,[[-5.8,2.9]],-.55)]).finally(()=>{
+      draco.dispose()
+      URL.revokeObjectURL(wrapper)
+      URL.revokeObjectURL(wasm)
+    })
+  }
 
   // ==========================================================================
   // CAMERA VIEWPOINTS (MARS SURFACE)
   // ==========================================================================
   const poses = {
-    // Exact perspective matching the user's uploaded BBC News photo
-    // Elevated camera looking across the curved horizon with deep crater shadows
-    panorama: {
-      pos: [58, 28, 62],
-      target: [-15, -4, -22]
+    air:{pos:[24,5.5,15],target:[19,1.6,5]},
+    water:{pos:[waterSite.x-9,6.1,waterSite.z+11],target:[waterSite.x-2,1.65,waterSite.z]},
+    solar: {
+      pos: [solar.x0+30,solar.level+36,solar.z0+46],
+      target: [solar.x0,solar.level,solar.z0]
     },
-    // Front rim of the major 72m crater looking down into shadow
-    rim: {
-      pos: [-12, 14, -12],
-      target: [-32, -10, -48]
+    // Low camera framing the habitat, suited crew and rover.
+    panorama: {
+      pos: [-2.2, getTerrainHeight(-2.2,28)+2.0, 28],
+      target: [0, floorY+2.35, 1]
     },
     // Research Base & Greenhouse overview
     base: {
-      pos: [18, 14, 22],
-      target: [1, -1.5, 0]
-    },
-    // Inside the massive crater basin looking up at towering rim walls
-    basin: {
-      pos: [-30, -14, -40],
-      target: [-30, 8, 10]
+      pos: [15, 5, 17],
+      target: [0, 1, 0]
     }
   }
 
@@ -1100,10 +1034,47 @@ async function initCraterEnvironment() {
   // FIRST PERSON EXPLORATION (FPS WALK ON THE CRATER RIM)
   // ==========================================================================
   const keys = new Set()
+  const audio = createSurfaceAudio()
+  const bodyRadius=.25
+  const stepHeight=.20
+  const bodyHeight=1.84
+  let grounded=true
+  let jumpQueued=false
+  let stride=0
+  const nearBox=(box,x,z)=> {
+    const dx=x-Math.max(box.min.x,Math.min(x,box.max.x))
+    const dz=z-Math.max(box.min.z,Math.min(z,box.max.z))
+    return dx*dx+dz*dz<bodyRadius*bodyRadius
+  }
+  function movementAt(x,z,feet,allowStep) {
+    let ground=indoors?floorY:getTerrainHeight(x,z)
+    if(!indoors && z>=5.12 && z<=6.65) {
+      const lock=locks.find(entry=>Math.abs(x-entry.x)<.76)
+      if(lock) ground=Math.max(ground,T.MathUtils.lerp(floorY,lock.rampFootY,(z-5.12)/1.53))
+    }
+    let support=ground
+    if (Math.abs(x)>=170 || Math.abs(z)>=170
+        || (indoors?!insideZone(x,z):outsideObstacle(x,z))) return {blocked:true,support}
+    const obstacles=indoors?[indoorObstacles]:[baseObstacles,rockObstacles]
+    for(const layer of obstacles) for(const box of layer) {
+      if(!nearBox(box,x,z)) continue
+      const top=box.max.y
+      if(top<=feet+.015 || (allowStep && top-feet<=stepHeight && box.min.y<=feet+.12)) {
+        support=Math.max(support,top)
+      } else if(box.min.y<feet+bodyHeight && top>feet) {
+        return {blocked:true,support}
+      }
+    }
+    return {blocked:false,support}
+  }
+  let indoors = false
+  let airlockCycle = null
   let fpsActive = false
   const eyeHeight = 1.75
   const lookAngles = { yaw: 0, pitch: 0 }
-  const walkSpeed = 5.2 // m/s
+  const walkSpeed = 1.55 // illustrative suited walking speed in m/s
+  const marsGravity = 3.7 // NASA Glenn, m/s²
+  let fallSpeed = 0
   let isPointerLocked = false
 
   function updateFPSCamera() {
@@ -1119,6 +1090,17 @@ async function initCraterEnvironment() {
 
   function setFPSActive(active) {
     fpsActive = active
+    if (airlockCycle) {
+      airlockCycle.lock.inner.position.x = airlockCycle.lock.outer.position.x = 0
+      airlockCycle = null
+      renderer.shadowMap.needsUpdate = true
+    }
+    indoors = false
+    fallSpeed = 0
+    grounded = true
+    jumpQueued = false
+    stride = 0
+    el("habitat-entry").textContent="Hava kilidinden gir"
     controls.enabled = !active
     
     const btn = el("fps-toggle")
@@ -1130,21 +1112,23 @@ async function initCraterEnvironment() {
     const help = el("camera-help")
     if (help) {
       help.textContent = active
-        ? "WASD ile yürü · Fare veya Ok Tuşlarıyla bak · Shift ile koş · Esc ile çık"
-        : "Fareyle sürükleyerek bak, tekerlekle yaklaş. Krater morfolojisi ve gölgeler gerçek planetary bilim standartlarındadır."
+        ? "WASD ile yürü · Fare veya Ok Tuşlarıyla bak · Boşluk ile zıpla · E ile hava kilidi · Esc ile çık"
+        : "Fareyle sürükleyerek bak, tekerlekle yaklaş. Alçak güneş altında Mars yerleşimini incele."
     }
 
     if (active) {
+      canvas.focus({preventScroll:true})
+      audio.enable()
       // Koloni sahasının dışında, düz ovaya bakan bir noktada başla
-      const spawnX = 26
-      const spawnZ = 34
+      const spawnX = 0
+      const spawnZ = 12
       camera.position.set(spawnX, getTerrainHeight(spawnX, spawnZ) + eyeHeight, spawnZ)
-      lookAngles.yaw = 0.66
+      lookAngles.yaw = 0
       lookAngles.pitch = -0.06
       updateFPSCamera()
       
       // Request pointer lock for smooth FPS mouse look
-      canvas.requestPointerLock?.()
+      try { canvas.requestPointerLock?.()?.catch(() => {}) } catch { /* keyboard look remains available */ }
 
       const hud = el("hud-telemetry")
       if (hud) {
@@ -1152,7 +1136,7 @@ async function initCraterEnvironment() {
         hud.textContent = `Astronot FPS | X: ${spawnX.toFixed(1)}m | Y: ${groundY.toFixed(1)}m | O2: %100 | Güç: Normal`
       }
     } else {
-      if (document.exitPointerLock) document.exitPointerLock()
+      if (document.pointerLockElement === canvas) document.exitPointerLock()
       setView(activeView)
     }
   }
@@ -1161,7 +1145,7 @@ async function initCraterEnvironment() {
     get active() { return fpsActive },
     setActive: setFPSActive,
     update(delta) {
-      if (!fpsActive) return
+      if (!fpsActive || airlockCycle) return
 
       // Keyboard turn
       const turnX = Number(keys.has("ArrowRight")) - Number(keys.has("ArrowLeft"))
@@ -1177,45 +1161,61 @@ async function initCraterEnvironment() {
       const strafe  = Number(keys.has("KeyD")) - Number(keys.has("KeyA"))
       const sprint  = keys.has("ShiftLeft") || keys.has("ShiftRight") ? 1.8 : 1.0
 
-      if (forward !== 0 || strafe !== 0) {
-        const moveVector = new T.Vector3()
-        const sinYaw = Math.sin(lookAngles.yaw)
-        const cosYaw = Math.cos(lookAngles.yaw)
-
-        // Forward vector (horizontal)
-        const fX = -sinYaw * forward
-        const fZ = -cosYaw * forward
-
-        // Strafe vector (horizontal)
-        const sX = cosYaw * strafe
-        const sZ = -sinYaw * strafe
-
-        moveVector.set(fX + sX, 0, fZ + sZ).normalize().multiplyScalar(walkSpeed * sprint * delta)
-
-        const nextX = camera.position.x + moveVector.x
-        const nextZ = camera.position.z + moveVector.z
-
-        // Boundary limit (-170m .. +170m)
-        if (Math.abs(nextX) < 170 && Math.abs(nextZ) < 170) {
-          // Collision check against base structures
-          const collides = baseObstacles.some(box =>
-            nextX > box.min.x && nextX < box.max.x && nextZ > box.min.z && nextZ < box.max.z
-          )
-          if (!collides) {
-            camera.position.x = nextX
-            camera.position.z = nextZ
-          }
+      const previousY=camera.position.y
+      const startX=camera.position.x, startZ=camera.position.z
+      let feet=previousY-eyeHeight
+      if (jumpQueued && grounded) {
+        fallSpeed=-1.75
+        grounded=false
+        stride=0
+      }
+      jumpQueued=false
+      const angle=lookAngles.yaw
+      const travel=walkSpeed*sprint*delta/(Math.hypot(forward,strafe)||1)
+      const dx=(Math.cos(angle)*strafe-Math.sin(angle)*forward)*travel
+      const dz=(-Math.sin(angle)*strafe-Math.cos(angle)*forward)*travel
+      const move=(x,z)=>{
+        const query=movementAt(x,z,feet,grounded)
+        if(query.blocked) return
+        camera.position.x=x
+        camera.position.z=z
+        if(grounded && query.support>feet) feet=query.support
+      }
+      if(dx) move(camera.position.x+dx,camera.position.z)
+      if(dz) move(camera.position.x,camera.position.z+dz)
+      const {support:groundY}=movementAt(camera.position.x,camera.position.z,feet,grounded)
+      const airborne=!grounded
+      if(!grounded || feet>groundY+.025) {
+        feet-=(fallSpeed+marsGravity*delta/2)*delta
+        fallSpeed+=marsGravity*delta
+        grounded=false
+        if(indoors && feet+bodyHeight>floorY+2.32 && fallSpeed<0) {
+          feet=floorY+2.32-bodyHeight
+          fallSpeed=0
         }
+      }
+      if(feet<=groundY && fallSpeed>=0) {
+        if(airborne && fallSpeed>.85) audio.landing(indoors)
+        feet=groundY
+        fallSpeed=0
+        grounded=true
+      }
+      camera.position.y=feet+eyeHeight
+      if(grounded) {
+        stride+=Math.hypot(camera.position.x-startX,camera.position.z-startZ)
+        if(stride>=.65) {
+          audio.step(indoors)
+          stride-=.65
+        }
+      }
 
-        // Stick to true crater terrain surface
-        const groundY = getTerrainHeight(camera.position.x, camera.position.z)
-        camera.position.y = groundY + eyeHeight
+      if (forward || strafe || camera.position.y !== previousY) {
         updateFPSCamera()
 
         // Update live telemetry HUD
         const hud = el("hud-telemetry")
         if (hud) {
-          hud.textContent = `X: ${camera.position.x.toFixed(1)}m | Y: ${groundY.toFixed(1)}m | Z: ${camera.position.z.toFixed(1)}m | O2: %100 | Güç: Normal`
+          hud.textContent = `X: ${camera.position.x.toFixed(1)}m | Y: ${feet.toFixed(1)}m | Z: ${camera.position.z.toFixed(1)}m | O2: %100 | Güç: Normal`
         }
       }
     }
@@ -1237,10 +1237,11 @@ async function initCraterEnvironment() {
       const hud = el("hud-telemetry")
       if (hud) {
         const viewLabels = {
+          air:"Hava tesisi · O₂ üretimi ve CO₂ temizliği",
+          water:"Su tesisi · Buz çıkarma ve geri kazanım",
+          solar: "Güneş tarlası · 42 masa · 420 panel",
           panorama: "Bakış: Mars Ovası Panoraması | Mod: Bilimsel Keşif",
-          rim: "Bakış: 72m Krater Kenarı (Rim Crest) | Yükseklik: +14m",
           base: "Bakış: Düz Koloni Sahası | Modül: ECLSS",
-          basin: "Bakış: Krater Tabanı (Derin Çanak) | Derinlik: -18.5m"
         }
         hud.textContent = viewLabels[viewId] || `Kamera: ${viewId}`
       }
@@ -1258,7 +1259,7 @@ async function initCraterEnvironment() {
   // Pointer lock & mouse movement
   canvas.addEventListener("click", () => {
     if (fpsActive && !isPointerLocked) {
-      canvas.requestPointerLock?.()
+      try { canvas.requestPointerLock?.()?.catch(() => {}) } catch { /* keyboard look remains available */ }
     }
   })
 
@@ -1273,8 +1274,85 @@ async function initCraterEnvironment() {
     updateFPSCamera()
   })
 
+  const hatchButton = el("habitat-entry")
+  const airlockStatus = message => {
+    el("hud-telemetry").textContent=message
+    const feedback=el("airlock-feedback")
+    if (feedback) feedback.textContent=message
+  }
+
+  function cycleAirlock(direct = false) {
+    if (airlockCycle) return
+    audio.enable()
+    const wasActive = fpsActive
+    if (!fpsActive) setFPSActive(true)
+    const fromZ = indoors ? 2.35 : 6.05
+    const nearest = locks.reduce((best,lock) =>
+      Math.abs(camera.position.x-lock.x)<Math.abs(camera.position.x-best.x)?lock:best,locks[1])
+    const lock = wasActive ? nearest : locks[1]
+    if (!direct && Math.hypot(camera.position.x-lock.x,camera.position.z-fromZ)>2.25) {
+      airlockStatus("En yakın kubbenin hava kilidine yaklaş ve E’ye bas.")
+      return
+    }
+    airlockCycle={lock, entering:!indoors, elapsed:0, phase:-1}
+    camera.position.set(lock.x,(indoors?floorY:getTerrainHeight(lock.x,fromZ))+eyeHeight,fromZ)
+    lookAngles.yaw=indoors?Math.PI:0
+    lookAngles.pitch=0
+    updateFPSCamera()
+  }
+
+  function updateAirlock(delta) {
+    if (!airlockCycle) return
+    const {lock,entering}=airlockCycle
+    const first=entering?lock.outer:lock.inner
+    const second=entering?lock.inner:lock.outer
+    const elapsed=airlockCycle.elapsed+=delta
+    const phase=elapsed<.65?0:elapsed<1.3?1:elapsed<2.55?2:elapsed<3.2?3:4
+    if (phase===airlockCycle.phase) return
+    airlockCycle.phase=phase
+    if (phase===0) {
+      first.position.x=1.64
+      audio.door(true)
+      airlockStatus(entering?"Dış kapı açık · Hazneye giriş":"İç kapı açık · Hazneye giriş")
+    } else if (phase===1) {
+      camera.position.set(lock.x,floorY+eyeHeight,4.02)
+      first.position.x=0
+      audio.door(false)
+      airlockStatus("İki kapı kapalı · Hazne sızdırmazlığı kontrol ediliyor")
+    } else if (phase===2) {
+      audio.pressure()
+      airlockStatus(entering?"Hazne kabin basıncına getiriliyor":"Hazne dış ortam basıncına getiriliyor")
+    } else if (phase===3) {
+      second.position.x=1.64
+      audio.door(true)
+      airlockStatus(entering?"İç kapı açık · Kabine geçiş":"Dış kapı açık · Yüzeye geçiş")
+    } else {
+      indoors=entering
+      const z=indoors?2.35:6.05
+      camera.position.set(lock.x,(indoors?floorY:getTerrainHeight(lock.x,z))+eyeHeight,z)
+      fallSpeed=0
+      grounded=true
+      stride=0
+      second.position.x=0
+      audio.door(false)
+      airlockCycle=null
+      hatchButton.textContent=indoors?"Hava kilidinden çık":"Hava kilidinden gir"
+      airlockStatus(indoors?"İç mekân · Yan tüneller diğer kubbelere bağlanır":"Dış ortam · E ile hava kilidini çalıştır")
+    }
+    updateFPSCamera()
+    renderer.shadowMap.needsUpdate=true
+  }
+  hatchButton.addEventListener("click", () => cycleAirlock(true))
   window.addEventListener("keydown", ev => {
+    if (fpsActive && ev.code==="Space" && (isPointerLocked || !ev.target.closest?.("button,input,select,textarea"))) {
+      ev.preventDefault()
+      if (!ev.repeat && !airlockCycle) {
+        audio.enable()
+        jumpQueued=true
+      }
+    }
     keys.add(ev.code)
+    if (fpsActive && ev.code==="KeyE" && !ev.repeat) cycleAirlock()
     if (ev.code === "Escape" && fpsActive) {
       setFPSActive(false)
     }
@@ -1300,6 +1378,7 @@ async function initCraterEnvironment() {
   function applyTheme(theme) {
     currentTheme = theme
     const isMoon = theme === "moon"
+    photoWeight.value = photoSource && !isMoon ? 1 : 0
 
     const newTextures = generateRegolithTextures(isMoon, terrainExtent)
     terrainMat.map = newTextures.albedoTexture
@@ -1308,7 +1387,7 @@ async function initCraterEnvironment() {
 
     skyDome.visible = !isMoon
     scene.background.set(isMoon ? 0x000003 : 0x0b0806)
-    scene.fog = isMoon ? null : new T.FogExp2(fogColor, 0.0042)
+    scene.fog = isMoon ? null : new T.FogExp2(fogColor, 0.004)
     starField.visible = isMoon
     earthGroup.visible = isMoon
 
@@ -1316,14 +1395,14 @@ async function initCraterEnvironment() {
     hillMatFar.color.set(isMoon ? 0x7d7e85 : 0xb08a6f)
     paintRocks(isMoon)
 
-    sunLight.color.set(isMoon ? 0xffffff : 0xffe4c9)
-    sunLight.intensity = isMoon ? 4.0 : 3.1
-    earthshineLight.color.set(isMoon ? 0x2a3244 : 0xd9a582)
+    sunLight.color.set(isMoon ? 0xffffff : 0xffe0bd)
+    sunLight.intensity = isMoon ? 4.0 : 3.5
+    earthshineLight.color.set(isMoon ? 0x2a3244 : 0xe9bfa7)
     earthshineLight.groundColor.set(isMoon ? 0x0b0d12 : 0x6d4030)
-    earthshineLight.intensity = isMoon ? 0.25 : 0.95
+    earthshineLight.intensity = isMoon ? 0.25 : 1.7
 
     if (themeToggleBtn) {
-      themeToggleBtn.textContent = isMoon ? "Ortam: 🌕 Ay (Referans)" : "Ortam: 🪐 Mars (Jezero)"
+      themeToggleBtn.textContent = isMoon ? "Ortam: 🌕 Ay (Referans)" : "Ortam: 🪐 Mars"
     }
   }
 
@@ -1337,6 +1416,12 @@ async function initCraterEnvironment() {
   // ==========================================================================
   // RENDER LOOP & RESIZING
   // ==========================================================================
+  const fullScreenButton = el("scene-fullscreen")
+  fullScreenButton?.addEventListener("click", async () => {
+    if (document.fullscreenElement) await document.exitFullscreen()
+    else await viewport.requestFullscreen()
+  })
+
   const resizeObserver = new ResizeObserver(() => {
     if (!viewport.clientWidth || !viewport.clientHeight) return
     renderer.setSize(viewport.clientWidth, viewport.clientHeight, false)
@@ -1347,7 +1432,8 @@ async function initCraterEnvironment() {
 
   let lastTime = performance.now()
   renderer.setAnimationLoop(time => {
-    const delta = Math.min(0.05, (time - lastTime) / 1000)
+    const realDelta = Math.max(0, (time - lastTime) / 1000)
+    const delta = Math.min(0.05, realDelta)
     lastTime = time
 
     // Slow Earth rotation
@@ -1355,11 +1441,13 @@ async function initCraterEnvironment() {
     atmosphereMesh.rotation.y += delta * 0.05
 
     if (fpsActive) {
+      updateAirlock(Math.min(.60,realDelta))
       fps.update(delta)
     } else {
       controls.update()
     }
 
+    for (const system of systems) system.frame(time/1000,delta)
     renderer.render(scene, camera)
   })
 
@@ -1369,7 +1457,7 @@ async function initCraterEnvironment() {
 }
 
 // Start application
-initCraterEnvironment().catch(err => {
+initMarsEnvironment().catch(err => {
   console.error("3D Init Error:", err)
   const st = el("scene-status")
   if (st) st.textContent = "3B sahne yüklenemedi: " + err.message

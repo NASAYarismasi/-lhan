@@ -61,3 +61,17 @@ export function loadMarsAssets() {
 export function loadJezeroAssets() {
   return fillModels(JEZERO)
 }
+
+export async function loadCraterAssets() {
+  const [rover, suit, wasm, regolith] = await Promise.all([
+    base64(modelUrl("perseverance.glb")),
+    base64(modelUrl("team-astronaut.glb")),
+    base64(dracoDecoderWasmUrl),
+    base64(modelUrl("three-forks-regolith.jpg")),
+  ])
+  fill("scene-rover", rover)
+  fill("scene-suit", suit)
+  fill("scene-wasm", wasm)
+  fill("scene-decoder", dracoDecoderJs)
+  fill("regolith-photo", regolith)
+}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mars Krater Ekosistemi — NASA Yaşam Destek Üssü</title>
+<title>Mars Kolonisi · İlk Gece</title>
 <style>
 *{box-sizing:border-box}
 body{
@@ -282,39 +282,69 @@ footer a:hover{
     margin-left:0;
   }
 }
+
+.layout { grid-template-columns:minmax(0,1fr); }
+#viewport { height:clamp(340px,68vh,880px); }
+#viewport:fullscreen { width:100vw; height:100vh; }
+#viewport:fullscreen .hud-bar { display:none; }
+#hud-telemetry { font-size:12px; background:#1e1916a8; color:#f1e5db; }
+body { background:#11100f; }
+#first-night dl {display:grid;grid-template-columns:1fr auto;gap:.4rem 1rem;max-width:38rem}
+#first-night dd {text-align:right;margin:0;color:#9bdcbb}
+#first-night label {display:inline-block;margin:.4rem .6rem .4rem 0}
+#first-night select {font:inherit;padding:.35rem;background:#28211e;color:#fff}
 </style>
 </head>
 <body>
 <main>
 <header>
-  <h1>Mars Krater Ekosistemi <span class="badge">NASA ECLSS & 3B MORFOLOJİ</span></h1>
-  <p class="subtitle">Jezero Krateri'ndeki gerçekçi Mars yüzeyi: kızıl regolit, taş tarlası, tozlu kayısı gökyüzü, 3B araştırma üssü ve kapalı döngü yaşam destek simülasyonu.</p>
+  <h1>Mars Kolonisi</h1>
+  <p class="subtitle">Basınçlı habitat · FPS keşif · Yaşam desteği ve güneş enerjisi simülasyonu</p>
 </header>
 
 <div class="layout">
   <!-- 3D Viewport Panel -->
-  <section class="panel" aria-label="3 Boyutlu Krater ve Üs Görünümü">
+  <section class="panel" aria-label="3B Mars Ovası ve Üs Görünümü">
     <div id="viewport">
-      <canvas id="scene" tabindex="0" aria-describedby="camera-help" aria-label="3 Boyutlu Krater Morfolojisi ve Yaşam Destek Üssü"></canvas>
+      <canvas id="scene" tabindex="0" aria-describedby="camera-help" aria-label="3B Mars Ovası ve Yaşam Destek Üssü"></canvas>
       <div id="hud-telemetry" class="hud-bar">Yükseklik: Hesaplanıyor...</div>
-      <small id="scene-status" role="status">Krater morfolojisi ve arazi yükleniyor…</small>
+      <small id="scene-status" role="status">Mars ovası yükleniyor…</small>
     </div>
     
-    <div class="bar" id="views">
+    <div class="bar" id="views"><button data-view="air" aria-pressed="false">Hava tesisi</button><button data-view="water" aria-pressed="false">Buz sondası</button><button id="scene-fullscreen" type="button">Tam ekran</button>
       <button data-view="panorama" aria-pressed="true">📸 Mars Panoraması</button>
-      <button data-view="rim" aria-pressed="false">🏔️ Krater Kenarı</button>
-      <button data-view="base" aria-pressed="false">🚀 Üs & Sera</button>
-      <button data-view="basin" aria-pressed="false">🕳️ Krater Tabanı</button>
-      <button id="fps-toggle" aria-pressed="false" disabled>🚶 Astronotun Gözünden Gez (FPS)</button>
-      <button id="theme-toggle">Ortam: 🪐 Mars (Jezero)</button>
+      <button data-view="base" aria-pressed="false">Habitat</button>
+      <button data-view="solar" type="button" aria-pressed="false">Güneş tarlası</button>
+      <button id="fps-toggle" aria-pressed="false" disabled>🚶 Astronotun Gözünden Gez (FPS)</button><button id="habitat-entry" type="button">Hava kilidinden gir</button>
+      <button id="theme-toggle">Ortam: 🪐 Mars</button>
     </div>
 
-    <div class="instruction-row">
-      <small id="camera-help">Fareyle sürükleyerek bak, tekerlekle yaklaş. Mars regoliti, taş tarlası ve tozlu atmosfer Curiosity / Perseverance görüntülerine göre modellendi.</small>
-      <small class="ref-note">Referans görsellerdeki kızıl toprak, yassı taşlar, çakıl ve boğuk kayısı ufuk çizgisi</small>
+    <div class="instruction-row"><small id="airlock-feedback" aria-live="polite"></small>
+      <small id="camera-help">Fareyle sürükleyerek bak, tekerlekle yaklaş. FPS modunda WASD ile yürü, Boşluk ile zıpla ve herhangi bir kubbenin hava kilidine yaklaşınca E’ye bas.</small>
+
     </div>
   </section>
 
+  <section class="panel pad" id="first-night">
+    <h2>Koloninin ilk gecesi</h2><p>Buz sondası, üsten yaklaşık 69 m uzakta varsayımsal buzlu regolit sahasında. Hava kilidi basınç geçişleri sunum için hızlandırılmıştır.</p>
+    <label>İniş sonucu (.json) <input type="file" accept=".json,application/json"></label>
+    <button id="night-example" type="button">Örnek inişi yükle</button>
+    <p role="status"></p>
+    <form>
+      <label>Güneş koşulu
+        <select name="sunlight"><option value=".2">Örnek toz fırtınası</option><option value="1">Açık hava</option></select>
+      </label>
+      <label>Gece önceliği
+        <select name="priority"><option value="air">Oksijen üretimi · Buz çıkarmayı ertele</option><option value="water">Buzdan su çıkarma · Hava dolaşımı ve CO₂ temizliği öncelikli</option></select>
+      </label>
+      <button type="submit">Geceyi hesapla</button>
+    </form>
+    <output aria-live="polite"></output>
+    <details><summary>Senaryo varsayımları</summary>
+      <p>İniş verisindeki 1 su birimi 1 L, 1 oksijen birimi 1 kg, 1 enerji birimi 1 kWh olarak yorumlanır. Kabin depoları 100 L su ve 15 kg oksijenle sınırlıdır. Fazla kargo bu gece hesabına girmez.</p>
+      <p>Gündüz yükü 60 kWh, kullanılabilir batarya 180 kWh, gece 12,33 saat. Önce 1 kW asgari habitat yükü, ardından hava ve su tesisleri beslenir. Sabah raporu senaryonun tüketim ve üretimini gösterir. CO₂ değeri kütledir. Kabin basıncı ve güvenlik eşikleri hesaplanmaz.</p>
+    </details>
+  </section>
   <!-- NASA Life Support ECLSS Panel -->
   <section class="panel pad" aria-label="NASA Yaşam Destek Dengesi">
     <h2>NASA ECLSS Yaşam Destek Dengesi</h2>
@@ -370,31 +400,45 @@ footer a:hover{
 
 <!-- Detailed Systems & Science Section -->
 <section class="panel pad">
-  <h2>Bilimsel Morfoloji ve Üs Mimarisi</h2>
+  <h2>Mars Ovası ve Üs Mimarisi</h2>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:10px;">
     <div class="sci-card">
       <strong>Mars Atmosferi & Tozlu Ufuk:</strong>
       <p>Mars'ın ince karbondioksit atmosferi ve havada asılı toz, gökyüzünü kayısı-somon tonlarına boyar. Toz saçılması sert gölgeleri yumuşatır ve uzak sırtları boğuk bir ufuk çizgisine karıştırır.</p>
     </div>
     <div class="sci-card">
-      <strong>Rim Crest & Ejecta Örtüsü:</strong>
-      <p>Gerçek darbe kraterlerinde kenar yüksekliği çevre araziden belirgin şekilde yüksektir (overturned rim flap). Dışa doğru fırlayan materyal radyal ışınlar ve ikincil kraterler oluşturur.</p>
-    </div>
-    <div class="sci-card">
       <strong>Modüler Keşif Üssü:</strong>
-      <p>Mars yüzeyinde basınçlı habitat modülü, hidroponik cam sera, çift kanatlı güneş panelleri, yüksek kazançlı Dünya iletişim anteni ve çok tekerlekli yüzey keşif aracı (rover) yer alır.</p>
+      <p>Düz ovada birbirine tünellerle bağlanan basınçlı habitatlar, güneş tarlası, haberleşme direği ve yüzey keşif aracı yer alır.</p>
     </div>
   </div>
 </section>
 
-<footer>
+<footer><p>Taş biçimleri: <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/ZL0_0461_0707874698_410EBY_N0260630ZCAM07114_1100LMJ">Perseverance Mastcam-Z · Sol 461</a> · <a href="https://mars.nasa.gov/mars2020/multimedia/raw-images/image-of-the-week/week-166">Mastcam-Z · Sol 1123</a></p>
+<p>Zemin fotoğrafı NASA/JPL-Caltech/ASU/MSSS (Perseverance Mastcam-Z, Sol 693). <a href="https://science.nasa.gov/photojournal/perseverances-portrait-of-the-sample-depot/">Three Forks panoraması</a> · <a href="https://science.nasa.gov/photojournal/mastcam-zs-first-360-degree-panorama/">Jezero panoraması</a> · <a href="https://science.nasa.gov/photojournal/two-sizes-of-ripples-on-surface-of-martian-sand-dune/">Curiosity zemin referansı</a></p>
   NASA Yaşam Destek Sistemi referansları: 
   <a href="https://www.nasa.gov/reference/environmental-control-and-life-support-systems-eclss/" target="_blank" rel="noopener">NASA ECLSS Overview</a> · 
   <a href="https://ntrs.nasa.gov/citations/20160005782" target="_blank" rel="noopener">NASA Baseline Values and Assumptions Document (BVAD)</a> · 
   <a href="https://pds.nasa.gov/" target="_blank" rel="noopener">NASA Planetary Data System (LRO / HiRISE)</a>
-</footer>
+<p>Kubbe yerleşimi bir mühendislik konseptidir. Temeller araziye göre ayarlanır. Basınç kabuğu, dış koruma ve hava kilidi tasarım ilkeleri <a href="https://ntrs.nasa.gov/citations/20250003364">NASA HabSim</a> çalışmasına dayanır. Malzeme kalınlığı ve taşıyıcı kesitleri boyutlandırılmamıştır.</p><p>İç donanım: Orion’dan uyku tulumu, su dağıtıcısı ve yemek ısıtıcısı. ISS’den su geri kazanımı ve kabin hava arıtma rafları. <a href="https://www.nasa.gov/reference/crew-systems/">NASA Orion</a> · <a href="https://www.nasa.gov/reference/environmental-control-and-life-support-systems-eclss/">NASA ISS</a></p><p>Sahne ışığı ve toz sisi temsili. Kamera ve yürüme hızı sunum için ayarlandı. <a href="https://science.nasa.gov/3d-resources/mars-2020-perseverance-rover/">NASA/JPL Perseverance</a> · <a href="https://science.nasa.gov/3d-resources/astronaut/">NASA astronot modeli</a></p></footer>
+<section class="panel pad" aria-label="Güneş tarlası enerji hesabı">
+  <h2>Güneş tarlası</h2>
+  <p>42 masa · 420 panel · 840 m² etkin panel yüzeyi</p>
+  <div class="bar">
+    <button data-solar-weather="1" type="button" aria-pressed="true">Açık hava</button>
+    <button data-solar-weather="0.2" type="button" aria-pressed="false">Örnek toz fırtınası</button>
+  </div>
+  <p aria-live="polite">Üretim <strong id="solar-generated">420 kWh/sol</strong> · 413 kWh/sol bütçeye göre fark <strong id="solar-balance">+7 kWh/sol</strong></p>
+  <p>Batarya 250 kWh nominal, 180 kWh kullanılabilir. Dolu bataryadan 132 kWh gece tüketimi sonrası 48 kWh kalır.</p>
+  <details><summary>Hesap varsayımları</summary>
+    <p>Üretim = 840 m² × 2,5 kWh/m²/sol × %25 panel verimi × %80 sistem verimi. Örnek fırtınada ışınım %80 azalır. Sayılar senaryo varsayımıdır.</p>
+  </details>
+</section>
 </main>
 
-<script type="module" src="./src/crater-ecosystem.mjs"></script>
+<script type="application/octet-stream" id="scene-rover"></script>
+<script type="application/octet-stream" id="scene-suit"></script>
+<script type="application/octet-stream" id="scene-wasm"></script>
+<script type="application/octet-stream" id="scene-decoder"></script>
+<script type="application/octet-stream" id="regolith-photo"></script><script type="module" src="./src/baslat-krater.js"></script>
 </body>
 </html>
