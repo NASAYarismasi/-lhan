@@ -27,3 +27,9 @@ Bu klasörde `npm install`, ardından `npm run build`. Kök dizindeki iki HTML y
 Görseller kavramsal mühendislik modelleridir. Hava üretim varsayımı toplam 0,108 kg O₂/saat ve 2,7 kW'tır: dokuz küçük MOXIE'nin zirve hızının sürekli sağlandığı varsayımıdır; böyle bir yaşam destek tesisi Mars'ta doğrulanmış değildir. Fan ve CO₂ temizleyici tüketimleri ön tasarım değeridir. Kabin basıncı, sıcaklığı, nemi, gaz karışımı ve gerçek güvenlik eşikleri simüle edilmez. CO₂ değeri sistemde kalan kütledir; ppm veya güvenlik göstergesi değildir.
 
 Su çıkarma 2 kW ile 20 L/6 saat; hammadde buz oranı %50, yakalama verimi %80 kabul edilir. Geri kazanım %85, ünitesi 0,3 kW ve 5 L/saat kabul edilir. Kirletici türleri, kazı direnci ve ısıtma başlangıcı ayrıntılı modellenmez. İnsan tüketim değerleri Dünya günü üzerinden saatlik hesaplanır. Su/O₂ tüketim ve kayıpları vardır; bu modüller eksiksiz bir koloni tasarımı veya gerçek yaşam desteği yeterlilik garantisi değildir.
+
+## Sera
+
+`sera.html` bağımsız gezilebilir sera demosudur. Kaynakları `sera.mjs`, `sera-demo.mjs` ve `sera-kaynak.html`. `npm run build` sera dosyasını da yeniler.
+
+Kapıya yaklaş ve bak, E ile hava kilidine gir. Basınç döngüsünden sonra ikinci kapı için tekrar E gerekir. WASD ile yürü, ok tuşları veya görünüme tıklayıp fareyle bak. Gece modunda mor LED açılır. Basınç ünitesi, tanklar, borular ve kolonlar kavramsaldır; basınç ve hava tüketimi fiziksel olarak hesaplanmaz.
