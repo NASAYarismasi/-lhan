@@ -4,13 +4,14 @@ import { createPlanet, createSky } from './planet.js';
 import { createLaunchSite } from './launchSite.js';
 import { createTerrain } from './terrain.js';
 import { createVehicle } from './vehicle.js';
+import { createMarsHeatShield } from './marsLander.js';
 import { createCabin } from './cabin.js';
 import { createEffects } from './effects.js';
 import { disposeScene } from './dispose.js';
 import { interpolateState } from './interpolate.js';
 
 export function createWorldScene() {
-  let ctx,scene,earth,mars,sky,pad,terrain,vehicle,cabin,effects,sun,ambient,sunDisk,last=0;
+  let ctx,scene,earth,mars,sky,pad,terrain,vehicle,cabin,effects,sun,ambient,sunDisk,heatShield;
   const detached=new Map();
   return {
     enter(context){ctx=context;scene=new THREE.Scene();this.scene=scene;
@@ -20,9 +21,10 @@ export function createWorldScene() {
       earth=createPlanet(EARTH.radius,false,ctx.assets);mars=createPlanet(MARS.radius,true,ctx.assets);sky=createSky(ctx.assets);
       pad=createLaunchSite();terrain=createTerrain();vehicle=createVehicle(ctx.assets);cabin=createCabin(ctx.assets);effects=createEffects(scene);
       scene.add(earth.group,mars.group,sky.mesh,pad.group,terrain.group,vehicle.group,cabin.group);
+      heatShield=createMarsHeatShield();heatShield.visible=false;scene.add(heatShield);
       sunDisk=new THREE.Mesh(new THREE.SphereGeometry(75000,24,16),new THREE.MeshBasicMaterial({color:new THREE.Color(8,6,3)}));sunDisk.position.set(1.2e7,1.5e7,-1e7);scene.add(sunDisk);
     },
-    update(pair,alpha){const s=interpolateState(pair.previous,pair.current,alpha),dt=Math.max(.001,s.missionTime-last);last=s.missionTime;
+    update(pair,alpha){const s=interpolateState(pair.previous,pair.current,alpha);
       ctx.cameras.update(s,ctx.frameDelta);const onboard=ctx.cameras.effective===1;
       earth.group.visible=!s.mars;mars.group.visible=s.mars;
       const sunDirection=new THREE.Vector3(.65,.55,.6).normalize();sun.position.copy(sunDirection.clone().multiplyScalar(500));
@@ -33,6 +35,14 @@ export function createWorldScene() {
         sunDirection.set(-s.heliocentric.ship[0],0,-s.heliocentric.ship[1]).normalize();sun.position.copy(sunDirection.clone().multiplyScalar(500));sunDisk.position.copy(sunDirection.clone().multiplyScalar(2e7));
       }else{earth.group.scale.setScalar(1);mars.group.scale.setScalar(1);}
       pad.update(s);terrain.update(s);vehicle.update(s,onboard,ctx.cameras.camera);cabin.update(s,onboard);effects.setQuality(ctx.quality==='Düşük'?.45:ctx.quality==='Orta'?.7:1);effects.update(s,ctx.height);
+      const shield=s.heatShield;
+      heatShield.visible=Boolean(shield&&!shield.impacted&&!onboard);
+      if(heatShield.visible){
+        // Relative polar coordinates are subtracted in JS doubles before upload.
+        const [r,theta]=shield.vector,angle=theta-s.polar[1];
+        heatShield.position.set(r*Math.sin(angle),r*Math.cos(angle)-s.polar[0],0);
+        heatShield.rotation.set(shield.age*.11,0,shield.age*.17);
+      }
       sun.castShadow=s.altitude<1500;ambient.intensity=s.phase==='CRUISE'?.18:s.mars?.85:Math.max(.18,1.2*Math.exp(-(s.altitude??0)/30000));
       if(s.altitude<5000) {scene.fog=new THREE.FogExp2(s.mars?0x9d7453:0x5587b5,s.mars?.000022:.000002*Math.exp(-s.altitude/5000));}else scene.fog=null;
       for(const b of s.debris){let model=detached.get(b.id);if(!model){model=vehicle.makeDebris(b.id);scene.add(model);detached.set(b.id,model);

@@ -17,17 +17,31 @@ export function entryFromOrbit(orbitAltitude = 250000, periapsisAltitude = -5000
     deltaV: Math.sqrt(MARS.mu / ra) - Math.sqrt(MARS.mu * (2 / ra - 1 / a)) };
 }
 
-/** Planar rotating-atmosphere lifting entry + throttleable SRP. All output uses SI. */
+/** Planar rotating-atmosphere lifting entry + throttleable SRP. All output uses SI.
+ * Human-class context: NASA DRA 5.0 https://ntrs.nasa.gov/citations/20090012109
+ * and SRP https://ntrs.nasa.gov/citations/20200002811 . No parachute is used.
+ * Capture is propulsive in this mission; atmospheric entry follows deorbit.
+ */
 export function createEDL({ vector = entryFromOrbit().vector, propellant = LANDER.propellantMass } = {}) {
   const state = { vector: [...vector, propellant], time: 0, status: 'ENTRY', throttle: 0, powered: false,
-    peakHeating: 0, heatLoad: 0, peakDeceleration: 0, touchdownSpeed: null, control: { ar: 0, at: 0 }, events: [] };
+    peakHeating: 0, heatLoad: 0, peakDeceleration: 0, touchdownSpeed: null, control: { ar: 0, at: 0 },
+    heatShield: null, legsDeployed: false, events: [] };
   function command(s) {
     const [r, , vr, vt, fuel] = s, altitude = r - MARS.radius;
     const rel = vt - MARS.rotation * r, speed = Math.hypot(vr, rel);
     const mass = LANDER.dryMass + Math.max(0, fuel), g = MARS.mu / r ** 2;
     const stopDistance = speed ** 2 / (2 * Math.max(1, LANDER.thrust / mass - g));
     if (!state.powered && altitude < 15000 && altitude < stopDistance * 1.4 + 2000) {
+      // GAME ASSUMPTION: visual debris tracer, 5 m/s downward + 10 m/s lateral
+      // separation impulse. The existing aggregate lander mass/drag model is
+      // unchanged; this is not a second deduction of hardware from that model.
+      state.heatShield = { vector: [r + 1.6, s[1], vr - 5, vt + 10], age: 0, impacted: false };
+      state.events.push({ type: 'HEATSHIELD_JETTISON', time: state.time, altitude });
       state.powered = true; state.events.push({ type: 'SRP_IGNITION', time: state.time, altitude, speed });
+    }
+    if (state.powered && !state.legsDeployed && altitude <= 1000) {
+      // GAME ASSUMPTION: gear deployment command; no change to flight forces.
+      state.legsDeployed = true; state.events.push({ type: 'LEGS_DEPLOYED', time: state.time, altitude });
     }
     if (!state.powered || fuel <= 0) return { ar: 0, at: 0, throttle: 0 };
     // GAME ASSUMPTION: continuous-throttle ideal engines, 1.2 m/s terminal descent.
@@ -76,6 +90,7 @@ export function createEDL({ vector = entryFromOrbit().vector, propellant = LANDE
       state.throttle = 0;
     }
     state.time += elapsed;
+    advanceHeatShield(elapsed);
     state.vector[4] = Math.max(0, state.vector[4]);
     const f = forces(state.vector, control);
     state.peakHeating = Math.max(state.peakHeating, f.heating);
@@ -83,17 +98,39 @@ export function createEDL({ vector = entryFromOrbit().vector, propellant = LANDE
     state.peakDeceleration = Math.max(state.peakDeceleration, f.acceleration);
     if (state.time > 10000) state.status = 'FAILED';
   }
+  function advanceHeatShield(dt) {
+    const shield = state.heatShield;
+    if (!shield || shield.impacted) return;
+    // GAME ASSUMPTION: broadside ballistic tracer, 1200 kg, Cd=1.2,
+    // same entry area. Inverse-square Mars gravity and rotating-atmosphere drag;
+    // no lift, plume interaction or terrain collision beyond the reference sphere.
+    const previous = shield.vector;
+    shield.vector = rk4(previous, state.time - dt, dt, ([r, theta, vr, vt]) => {
+      const rel = vt - MARS.rotation*r, speed = Math.hypot(vr,rel);
+      const dragPerSpeed = .5*marsAtmosphere(r-MARS.radius).density*speed*1.2*LANDER.area/1200;
+      return [vr, vt/r, vt*vt/r-MARS.mu/(r*r)-dragPerSpeed*vr, -vr*vt/r-dragPerSpeed*rel];
+    });
+    if (shield.vector[0] <= MARS.radius) {
+      const fraction = clamp((previous[0]-MARS.radius)/(previous[0]-shield.vector[0]),0,1);
+      shield.vector = previous.map((v,i)=>v+fraction*(shield.vector[i]-v));
+      shield.vector[0] = MARS.radius; shield.impacted = true;
+      shield.age += dt*fraction;
+    } else shield.age += dt;
+  }
   function getTelemetry() {
     const [r, theta, vr, vt, propellant] = state.vector;
     const f = forces(state.vector, state.control);
     return { time: state.time, altitude: r - MARS.radius, downrange: MARS.radius * theta,
       velocity: Math.hypot(vr, vt), surfaceVelocity: f.speed, verticalSpeed: vr,
       flightPathAngle: Math.atan2(vr, vt), propellant, mass: LANDER.dryMass + propellant,
-      throttle: state.throttle, engineFiring: state.throttle > 0, inAtmosphere: r - MARS.radius < LANDER.entryAltitude,
+      throttle: state.throttle, thrustAngle: Math.atan2(-state.control.at, state.control.ar),
+      engineFiring: state.throttle > 0, inAtmosphere: r - MARS.radius < LANDER.entryAltitude,
       ballisticCoefficient: f.mass / (LANDER.cd * LANDER.area), mach: f.speed / f.atm.speedOfSound,
       dynamicPressure: .5 * f.atm.density * f.speed ** 2, peakHeating: state.peakHeating,
       pressure: f.atm.pressure, density: f.atm.density, heatFlux: f.heating, acceleration: f.acceleration,
-      heatLoad: state.heatLoad, peakDeceleration: state.peakDeceleration, touchdownSpeed: state.touchdownSpeed, status: state.status };
+      heatLoad: state.heatLoad, peakDeceleration: state.peakDeceleration, touchdownSpeed: state.touchdownSpeed, status: state.status,
+      heatShield: state.heatShield ? { ...state.heatShield, vector: [...state.heatShield.vector] } : null,
+      legsDeployed: state.legsDeployed };
   }
   return { state, step, getTelemetry };
 }

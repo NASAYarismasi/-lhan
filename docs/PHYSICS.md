@@ -64,6 +64,14 @@ Sutton–Graves ısı göstergesi q̇ = k√(ρ/rn)v³, kMars = 1,9027×10⁻⁴
 
 SRP, h<15 km ve h<1,4·dstop+2 km koşulunda başlar; dstop = vrel²/[2(Fmax/m−g)]. Atmosferik frenlemeye fırsat vermek için erken ateşleme engellenir. Motor komutu yatay bağıl hızı sıfıra götürür, düşey hedefi irtifayla azaltır; son 50 m’de hedef yumuşatılır ve yerde 1,2 m/s istenir. Motorlar ideal sürekli gaz kolludur; asgari itki, gimbal ve engine-out modellenmez. Otopilotun gecikmesiyle gerçek temas yaklaşık 1,50 m/s’dir. `altitude<=0` kesişimi adım içinde enterpole edilir; çarpma hızı korunur, sıfırlanmaz. Toplam yüzeye bağıl hız <2,5 m/s ise güvenli iniş, aksi durumda `FAILED` olur. Tepe yük m/s² olarak raporlanır. Yakıtsız inişin başarısız olduğu ayrıca test edilir.
 
+<!-- INIS: EDL presentation/debris additions; main force model is unchanged. -->
+İniş görselleştirmesi, [NASA DRA 5.0](https://ntrs.nasa.gov/citations/20090012109) insanlı görev bağlamı ve [insan ölçekli SRP araştırması](https://ntrs.nasa.gov/citations/20200002811) ile ilişkilendirilir. Mevcut görevde yakalama motorludur; aerocapture hesaplanıyormuş gibi gösterilmez. Giriş plazması ve ısınma parıltısı mevcut Sutton–Graves akısından, araç/motor yönü ise otopilotun radyal/teğetsel itki ivmesinden okunur.
+
+SRP eşiğinde bir kez `HEATSHIELD_JETTISON` üretilir. Ayrılan kalkan bağımsız RK4 izidir: ters kare Mars yerçekimi ve dönen atmosferde sürükleme içerir. **Oyun varsayımları:** 1200 kg iz kütlesi, Cd=1,2, mevcut giriş alanı, 1,6 m radyal konum ofseti, −5 m/s radyal ve +10 m/s teğetsel ayrılma darbesi. Küresel yüzey kesişimi adım içinde enterpole edilir, ardından iz durur. Ana aracın önceden tanımlı toplam kütlesi/aerodinamiği korunur; bu kalkan izi ikinci bir donanım kütlesi çıkarımı değildir. Kalkan ablasyonu, egzoz etkileşimi ve ayrıntılı arazi çarpışması çözülmez.
+
+**Oyun varsayımı:** motorlu inişte ≤1000 m'de bir kez `LEGS_DEPLOYED` açılma komutu üretilir; görsel açılma üç simülasyon saniyesinde tamamlanır. Kuvvetler ve güvenli temas eşiği değişmez. Motor tozu son 30 m'de başlar; oyuk/iz ve çöken toz görsel yaklaşımdır. Temas sonrası yaklaşık altı gerçek saniyelik koloni geçişi, duran görev saatini veya erzak miktarını ilerletmez ve hızlandırmayla kısalmaz. Mevcut iniş JSON'u aynen aktarılır.
+<!-- END INIS. -->
+
 ## Görev, erzak ve ortak iniş JSON’u
 
 `PRELAUNCH → ASCENT → PARKING_ORBIT → TMI_BURN → CRUISE → MOI_BURN → MARS_ORBIT → DEORBIT → EDL → LANDED`; herhangi bir aşama `FAILED` olabilir. Park yörüngelerinde bekleme gerçek görev zamanıdır; kullanıcı **B** ile manevrayı başlatır. MOI fiziksel Hohmann varışında otomatik başlar. **T** güvenli hızlandırmayı, **P** duraklatmayı seçer. API: `launch`, `setThrottle`, `stage`, `burn`, `abort`, `setWarp`, `getTelemetry`. Erken kademe atımı güvenli ayrılma kabulüyle reddedilir; `stage()` yalnızca tükenmiş katıyı ayırır, otomatik olaylar normal uçuşu yönetir.

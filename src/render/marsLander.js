@@ -1,31 +1,85 @@
-// TEMP — replaced by worker İNİŞ
 import * as THREE from 'three';
+import { box, cylinder, beam, material } from './primitives.js';
 
-/** Temporary crew lander contract: metres, Y-up, footpads y=0, hatch/ladder +Z. */
+/**
+ * Original human-class Mars lander concept. All dimensions are GAME ASSUMPTION,
+ * within the simulation's 15 m entry envelope; this is not flight hardware.
+ * Human entry architecture context: NASA DRA 5.0
+ * https://ntrs.nasa.gov/citations/20090012109
+ * Large aeroshell + supersonic retropropulsion research:
+ * https://ntrs.nasa.gov/citations/20200002811
+ * The mission uses propulsive orbit capture, then atmospheric entry, not aerocapture.
+ *
+ * Surface/flight contract: metres, +Y up, footpad undersides at y=0,
+ * hatch and ladder facing +Z. Returned configuration is landed, gear deployed.
+ * No DOM, loaded assets, shared resources, or animation loop. The caller owns
+ * and disposes geometries/materials. Named leg pivots allow flight articulation.
+ * @returns {THREE.Group}
+ */
 export function createMarsLander() {
   const lander = new THREE.Group();
-  lander.name = 'Crew_Mars_Lander_TEMP';
-  const hull = new THREE.MeshStandardMaterial({ color: 0xd9d5c7, roughness: .64, metalness: .25 });
-  const foil = new THREE.MeshStandardMaterial({ color: 0x8a7150, roughness: .65, metalness: .5 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x292c30, roughness: .7 });
-  const add = (geometry, material, x, y, z) => {
-    const part = new THREE.Mesh(geometry, material); part.position.set(x,y,z);
-    part.castShadow = true; part.receiveShadow = true; lander.add(part); return part;
-  };
-  add(new THREE.CylinderGeometry(2.2,3.2,3.6,8),hull,0,4.1,0);
-  add(new THREE.CylinderGeometry(3.4,3.5,.8,8),foil,0,2.1,0);
-  add(new THREE.BoxGeometry(1,1.8,.12),dark,0,3.3,2.7);
-  for (const sx of [-1,1]) for (const sz of [-1,1]) {
-    const footX=sx*4, footZ=sz*4;
-    add(new THREE.CylinderGeometry(.58,.68,.14,12),dark,footX,.07,footZ);
-    const start = new THREE.Vector3(sx*2.1,2.3,sz*2.1), end = new THREE.Vector3(footX,.14,footZ);
-    const strut=add(new THREE.CylinderGeometry(.12,.14,start.distanceTo(end),8),hull,0,0,0);
-    strut.position.copy(start).add(end).multiplyScalar(.5);
-    strut.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),end.clone().sub(start).normalize());
+  lander.name = 'mars-lander';
+  const white = material(0xdedfd7, .64, .25);
+  const foil = material(0xb99752, .46, .7);
+  const graphite = material(0x29383e, .7, .45);
+  const thermal = material(0xc6cabe, .85, .15);
+  const black = material(0x17252d, .5, .6);
+  const windows = material(0x0a2534, .12, .65);
+  windows.emissive.set(0x163a4a); windows.emissiveIntensity = .35;
+  cylinder(lander, 4.5, 5.8, 4.3, graphite, [0, 5.65, 0], 16);
+  cylinder(lander, 3.05, 4.5, 2.4, thermal, [0, 9, 0], 16);
+  cylinder(lander, 3.05, 3.05, .65, foil, [0, 10.52, 0]);
+  cylinder(lander, 1.25, 1.25, .65, white, [0, 11.16, 0]);
+  cylinder(lander, .85, 1.25, .3, black, [0, 11.64, 0]);
+  cylinder(lander, 5.8, 5.8, .35, foil, [0, 3.65, 0], 48);
+  cylinder(lander, 4.3, 4.8, 1.05, foil, [0, 2.95, 0]);
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2;
+    beam(lander, [Math.cos(a)*5.82,3.7,Math.sin(a)*5.82], [Math.cos(a)*4.52,7.8,Math.sin(a)*4.52], .035, foil);
+    if (i % 2 === 0) {
+      const panel = box(lander, [1.25,1.5,.16], thermal, [Math.sin(a)*4.95,6.1,Math.cos(a)*4.95]);
+      panel.rotation.set(.27,a,0);
+    }
   }
-  for (const sx of [-.55,.55]) {
-    const rail=add(new THREE.BoxGeometry(.07,3.5,.07),hull,sx,1.7,3.25); rail.rotation.x=.19;
+  for (let i = -1; i <= 1; i++) {
+    const frame = box(lander, [1.12,.88,.14], black, [i*1.25,8.65,4.12-Math.abs(i)*.16]);
+    box(frame, [.94,.69,.05], windows, [0,0,.09]);
   }
-  for(let i=0;i<10;i++) add(new THREE.BoxGeometry(1.1,.06,.12),hull,0,.18+i*.33,3.58-i*.063);
+  const hatch = box(lander, [1.35,1.9,.18], white, [0,5.6,5.73]); hatch.name = 'crew-hatch';
+  box(hatch, [.7,.45,.04], windows, [0,.45,.12]);
+  for (const x of [-.7,.7]) beam(lander, [x,4.5,5.9], [x,6.6,5.9], .045, foil);
+  const ladder = new THREE.Group(); ladder.name = 'crew-ladder'; lander.add(ladder);
+  for (let y = .5; y < 4.9; y += .38) beam(ladder, [-.55,y,6.15], [.55,y,6.15], .045, white);
+  for (const x of [-.65,.65]) beam(ladder, [x,.16,6.15], [x,4.9,6.15], .05, foil);
+  box(ladder, [1.6,.12,.8], graphite, [0,4.6,6.05]);
+  const gear = new THREE.Group(); gear.name = 'landing-gear'; lander.add(gear);
+  for (let i = 0; i < 4; i++) {
+    const a = i*Math.PI/2+Math.PI/4, x = Math.cos(a), z = Math.sin(a);
+    const leg = new THREE.Group(); leg.name = `landing-leg-${i}`;
+    leg.position.set(x*4.8,5,z*4.8); gear.add(leg);
+    const local = (radius,y) => [x*(radius-4.8),y-5,z*(radius-4.8)];
+    beam(leg, [0,0,0], local(8.5,.35), .19, graphite);
+    beam(leg, local(4.7,2.9), local(8.5,.35), .105, foil);
+    beam(leg, local(6.4,3), local(8.5,.35), .085, white);
+    const pad = cylinder(leg, 1,1.15,.22,graphite,local(8.5,.11),16); pad.name = `footpad-${i}`;
+    const engineAngle = i*Math.PI/2, ex = Math.cos(engineAngle)*4.2, ez = Math.sin(engineAngle)*4.2;
+    cylinder(lander,.35,.36,.65,foil,[ex,3.12,ez],24);
+    const bellMat = black.clone(); bellMat.side = THREE.DoubleSide;
+    const bell = new THREE.Mesh(new THREE.CylinderGeometry(.34,.82,1.45,24,1,true),bellMat);
+    bell.position.set(ex,2.225,ez); bell.castShadow = true; lander.add(bell);
+    const lip = new THREE.Mesh(new THREE.TorusGeometry(.82,.045,8,24),foil);
+    lip.rotation.x = Math.PI/2; lip.position.set(ex,1.5,ez); lander.add(lip);
+  }
   return lander;
+}
+
+/** Separate disposable entry cover. Surface callers only need createMarsLander(). */
+export function createMarsHeatShield() {
+  const shield = new THREE.Group(); shield.name = 'heat-shield';
+  const char = material(0x352b27,.97,.05), thermal = material(0xaeb2a5,.86,.15);
+  cylinder(shield,7.5,6.8,.7,char,[0,0,0],48);
+  cylinder(shield,5.75,7.5,2.3,thermal,[0,1.5,0],48);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(7.48,.10,8,48),material(0x8c7860,.8,.4));
+  rim.rotation.x = Math.PI/2; rim.position.y = .35; shield.add(rim);
+  return shield;
 }

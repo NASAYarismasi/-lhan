@@ -44,11 +44,21 @@ Bulut haritası, LC-39B ayrıntıları, Mars lander ve yerel Mars arazisi prosed
 - Kademe şeması `attached` durumlarından SRB → ana → ICPS/Orion ayrılmalarını, ardından transit ve iniş aracını izler. Negatif apsis irtifaları çizgi ve “yörünge altı”, açık yörüngenin apoapsisi “açık yörünge” olarak gösterilir.
 - Sis azaltıldı; mavi sabah göğü, görünür Atlantik ufku ve egzozun aydınlattığı kule/pad/duman güçlendirildi. Kesikli ekran çizgisi debug göstergesi değil, alt piksel kalınlığındaki yıldırım koruma kablolarının aliasing'iydi; kablolar kaldırıldı, direkler korundu.
 - Dünya küresi daha sık üçgenlenir; Florida–Atlantik yüksek çözünürlüklü NASA bölgesi doğru boylama yerleştirilip alçak irtifada harmanlanır. Tiled prosedürel detay/normal katkısı, 10,5 km yüksek bulut kabuğunun paralaksı ve sim saatine bağlı yavaş bulut sürüklenmesi eklenir. Bulutlar gerçek hava verisi değildir.
-- Mars aracı geniş, çok yüzlü insanlı iniş konseptidir. Girişte 15 m aeroshell, SRP olayından sonra kalıcı açılan dört ayak, merdiven ve dört açık motor çanı görünür. Motor plume ve son 50 m tozu korunur. Aeroshell geçişi görsel konfigürasyondur; ayrılmış kalkan fiziği eklenmedi.
+- Mars aracı geniş, çok yüzlü insanlı iniş konseptidir. Girişte 15 m aeroshell, ısı akısına bağlı plazma/ısınma parıltısı ve ablasyon izi görünür. SRP olayında kalkan bağımsız simülasyon izine geçer; ≤1000 m'de dört bacak üç sim saniyesinde açılır. Dört motor plume'u gerçek gaz kolu ve itki yönünü izler; toz ve yüzey aşınma izi son 30 m'de belirir, temas tozu sunum saatinde çöker.
 - Harita tüm transfer elipsini kesikli, uçulan yayı düz çizer. Varış halkası ve ekran uzayında çakışma denetimli etiketler bulunur. Deterministik test adımları, analitik seyir sıçraması sonrasında güncel snapshot'ı çizer; normal RAF enterpolasyonu korunur.
 - Q, sağ altta erzak günleri, görev saati/fazı, kabin güç durumu ve sonraki olay için kol bilgisayarını açar. Erzak günleri sim kg / (kişi başı günlük tüketim × mürettebat) hesabıdır. Kabin gücü sim telemetrisindeki açık/kapalı veri yoludur; elektrik tüketimi/batarya modeli değildir.
 
-Uçuş sabitleri, kuvvetler, görev geçişleri ve ortak iniş yükü değişmedi. Türkçe zaman çizelgesi ve sistem etiketleri İngilizce olay kodlarının yerini aldı.
+Uçuş sabitleri, ana aracın kuvvetleri, görev geçişleri ve ortak iniş yükü değişmedi. Ayrı kalkan izinin varsayımları `docs/PHYSICS.md` içinde açıklanır. Türkçe zaman çizelgesi ve sistem etiketleri İngilizce olay kodlarının yerini aldı.
+
+<!-- INIS: surface worker integration contract and landing QA. -->
+`src/render/marsLander.js` içindeki `createMarsLander(): THREE.Group` uçuş ve koloni için ortak prosedürel modeldir: metre, +Y yukarı, ayak tabanları y=0, kapı/merdiven +Z. Varsayılanı yerde ve bacakları açık durumdur. DOM/GLB/doku yükleyicisi gerektirmez; kaynakları çağıran sahne temizler. Uçuş aeroshell'i ayrı ekler; koloni yalnızca bu fonksiyonu çağırır. `landing-gear`, `landing-leg-0…3`, `footpad-0…3`, `crew-hatch`, `crew-ladder` isimleri korunur.
+
+Yerel arazi Jezero'nun yaklaşık 45 km çapındaki kenarını ve batı deltasını temsil eder; gerçek DEM değildir. Yakın yüzey ve 650 instanced kaya inişte ayrıntılanır; son kilometrede arazi dönen yüzeye sabitlenir. Gölge üreten tek ışık güneştir. Kamera 2, Mars'ta +Z yönündeki aşağı bakan iniş penceresine; kamera 3 yerel iniş sahasına geçer. Kamera 5 alçak inişte yer takibine geçer.
+
+Temas sonrası kamera kapıya yaklaşır, son 1,5 saniyede “Sol 1 · Jezero Krateri” kararması görünür; yaklaşık altıncı gerçek saniyede `saveLandingPayload()` ardından `colony.html` açılır. Enter/Boşluk ve `colony-btn` aynı geçişi atlatır; duraklatma sunum saatini de durdurur. Depolama başarısızsa otomatik geçiş durur ve düğme yeniden deneme için kalır. HUD eklemeleri `INIS` yorumlarıyla sınırlandırılmıştır; Q/Alt/L değiştirilmedi.
+
+İniş QA: plazmalı giriş, kalkan ayrılması, 1000 m bacak hareketi, son 30 m motor tozu, üç iniş kamerası, 0–6 s kapı yaklaşması/kararma, Enter/Boşluk ve otomatik geçiş sonrası gerçek uçuş kaynakları kontrol edilmelidir. Bu işçi paralel çalışma talimatı nedeniyle sunucu/tarayıcı/Playwright başlatmadı; görsel kontrol orkestratöre aittir.
+<!-- END INIS. -->
 
 ## Doğrulama
 

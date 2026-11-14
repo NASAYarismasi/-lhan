@@ -49,6 +49,16 @@ export function createCabin(assets) {
   const light=new THREE.PointLight(0x8dd5ee,35,12,2);light.position.set(0,4,3);group.add(light);
   const panelLight=new THREE.PointLight(0xc4dceb,45,14,2);panelLight.position.set(0,3,-2);group.add(panelLight);
   const strip=new THREE.Mesh(new THREE.BoxGeometry(5,.03,.07),new THREE.MeshBasicMaterial({color:0xa4d7ff}));strip.position.set(0,5.9,-2);group.add(strip);
+  // GAME ASSUMPTION: compact forward/downward lander observation station.
+  // Its aperture faces +Z, matching createMarsLander's crew-facing windows.
+  const landingCabin=new THREE.Group(),interior=new THREE.Group();interior.add(group,landingCabin);
+  box(landingCabin,[5,.25,4.6],shell,[0,6.65,2.5]);
+  box(landingCabin,[5,.2,3.6],shell,[0,9.8,2.7]);
+  for(const x of [-2.4,2.4]){box(landingCabin,[.2,3.1,3.6],shell,[x,8.2,2.7]);beam(landingCabin,[x*.9,7.1,4.2],[x*.9,9.6,4.2],.1,trim);}
+  for(const y of [7.15,9.5])beam(landingCabin,[-2.25,y,4.2],[2.25,y,4.2],.13,trim);
+  const landerPanel=box(landingCabin,[4.4,.65,.45],trim,[0,7,3.65]);landerPanel.rotation.x=.18;
+  const landerScreen=new THREE.Mesh(new THREE.PlaneGeometry(3.8,.48),screenMat);landerScreen.position.set(0,0,.24);landerPanel.add(landerScreen);
+  const landerLight=new THREE.PointLight(0x8dd5ee,12,6,2);landerLight.position.set(0,8,2);landingCabin.add(landerLight);
   let last=-1;
-  return {group,update(state,visible){group.visible=visible;if(!visible||Math.abs(state.missionTime-last)<.1)return;last=state.missionTime;const c=screenTexture.image.getContext('2d');c.fillStyle='#04121b';c.fillRect(0,0,1536,512);c.fillStyle='#73b8c9';c.font='25px monospace';c.fillText('ORION / UÇUŞ BİLGİSAYARI                       GNC  ● NOMİNAL',36,54);c.strokeStyle='#24404d';for(let y=85;y<512;y+=86){c.beginPath();c.moveTo(30,y);c.lineTo(1500,y);c.stroke();}c.fillStyle='#d1e8ed';c.font='52px monospace';c.fillText(`İRTİFA  ${((state.altitude??0)/1000).toFixed(1)} km`,38,150);c.fillText(`HIZ     ${((state.velocity??0)/1000).toFixed(3)} km/s`,38,240);c.fillText(`DÜŞEY   ${(state.verticalSpeed??0).toFixed(0)} m/s`,38,330);c.fillStyle='#5be6bc';c.font='28px monospace';c.fillText('OTOPİLOT / ÜÇ MÜRETTEBAT / YAŞAM DESTEĞİ AKTİF',38,451);screenTexture.needsUpdate=true;}};
+  return {group:interior,update(state,visible){interior.visible=visible;group.visible=!state.mars;landingCabin.visible=state.mars;if(!visible||Math.abs(state.missionTime-last)<.1)return;last=state.missionTime;const c=screenTexture.image.getContext('2d');c.fillStyle='#04121b';c.fillRect(0,0,1536,512);c.fillStyle='#73b8c9';c.font='25px monospace';c.fillText((state.mars?'ÖNCÜ /':'ORION /')+' UÇUŞ BİLGİSAYARI                       GNC  ● NOMİNAL',36,54);c.strokeStyle='#24404d';for(let y=85;y<512;y+=86){c.beginPath();c.moveTo(30,y);c.lineTo(1500,y);c.stroke();}c.fillStyle='#d1e8ed';c.font='52px monospace';c.fillText(`İRTİFA  ${((state.altitude??0)/1000).toFixed(1)} km`,38,150);c.fillText(`HIZ     ${((state.velocity??0)/1000).toFixed(3)} km/s`,38,240);c.fillText(`DÜŞEY   ${(state.verticalSpeed??0).toFixed(0)} m/s`,38,330);c.fillStyle='#5be6bc';c.font='28px monospace';c.fillText('OTOPİLOT / ÜÇ MÜRETTEBAT / YAŞAM DESTEĞİ AKTİF',38,451);screenTexture.needsUpdate=true;}};
 }
