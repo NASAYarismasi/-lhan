@@ -315,7 +315,7 @@ function makeScene() {
       controls.enabled = !active
       if (active) {
         currentView = 'astronaut'
-        fps.teleport(camera.position, -.04, -.65)
+        fps.teleport(camera.position, -.04, arrivalYaw) // face the dome complex from the lander
       }
       environment.setFPS(active)
       viewport.classList.toggle("fps", active)
@@ -362,8 +362,9 @@ function makeScene() {
     },
   })
   // Crew arrives beside the +Z hatch ladder; avoid respawning inside the landing legs.
-  const hatchSpawn = new T.Vector3(crewLander.position.x + 1.6, 0, crewLander.position.z + 6.7)
-  const arrivalYaw = -2.15 // Face away toward the colony; a landing leg stays at the visor edge.
+  const hatchSpawn = new T.Vector3(crewLander.position.x, 0, crewLander.position.z + 9) // in front of the +Z ladder, clear of the diagonal legs
+  // Face İhan's dome complex (centred on the origin); camera forward is (-sin yaw, -cos yaw).
+  const arrivalYaw = Math.atan2(hatchSpawn.x, hatchSpawn.z)
   crewActor(playerId).position.set(hatchSpawn.x, groundY(hatchSpawn.x, hatchSpawn.z), hatchSpawn.z)
   fps.respawn(hatchSpawn, arrivalYaw)
   canvas.addEventListener("pointermove", event => {
