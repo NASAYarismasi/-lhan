@@ -1,10 +1,10 @@
 # Mars’a İlk Koloni & Mars Krater Yaşam Destek Üssü
 
-**Güncel demo.** [AY-KRATER-EKOSISTEM.html dosyasını indir](https://github.com/NASAYarismasi/-lhan/raw/refs/heads/main/AY-KRATER-EKOSISTEM.html) ve tarayıcıda aç. Özel depo için ekibin GitHub hesabıyla oturum aç.
+**Güncel demo.** [MARS-KOLONISI-DUZ-OVA.html dosyasını indir](https://github.com/NASAYarismasi/-lhan/raw/refs/heads/main/MARS-KOLONISI-DUZ-OVA.html) ve tarayıcıda aç. Özel depo için ekibin GitHub hesabıyla oturum aç.
 
 **Sorumlu: İlhan · Görev 2**
 
-### 🪐 Yeni: Mars Krater Ekosistemi (NASA ECLSS & Gerçekçi Jezero Yüzeyi)
+### Önceki demo: Mars Krater Ekosistemi (NASA ECLSS & Gerçekçi Jezero Yüzeyi)
 Perseverance / Curiosity fotoğraflarındaki gibi kızıl regolit, taş tarlası, yassı tabakalar ve boğuk kayısı ufuk çizgisi. Koloninin kurulduğu alan **düz bir saha** olarak modellendi (krater tabanı + üç iniş düzlüğü).
 
 - **Dosya:** [AY-KRATER-EKOSISTEM.html](./AY-KRATER-EKOSISTEM.html) (Çift tıklanarak doğrudan Chrome veya Edge'de çevrimdışı açılır, ~606 KB tek dosya).
