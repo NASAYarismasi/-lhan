@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+import { createFlightScene } from './flight-scene.js';
+import { flight, transferAt } from './flight.js';
 import './style.css';
 
 const get = id => document.getElementById(id);
@@ -65,6 +67,111 @@ for (const x of [-2.35, 0, 2.35]) {
   box(cabin, [.95, .065, .14], [x, 2.39, .5], 0xaaccaa).material.emissive.set(0x8ecb9e);
 }
 
+const phases = {
+  launch: { duration: 11, next: 'orbit', title: '01 / DÜNYA’DAN KALKIŞ' },
+  orbit: { duration: 8, next: 'cruise', title: '02 / DÜNYA PARK YÖRÜNGESİ' },
+  cruise: { duration: 22, next: 'entry', title: '03 / MARS TRANSFERİ' },
+  entry: { duration: 7, next: 'descent', title: '04 / MARS’A VARIŞ' },
+  descent: { duration: 8, next: 'landed', title: '05 / GÜÇLÜ İNİŞ' }
+};
+const flightScene = createFlightScene();
+let stage = 'ready';
+let stageTime = 0;
+let view = 'outside';
+let paused = false;
+const plume = new THREE.Group();
+const plumeMaterials = [
+  new THREE.MeshBasicMaterial({ color: 0xff602b, transparent: true, opacity: .56, blending: THREE.AdditiveBlending, depthWrite: false }),
+  new THREE.MeshBasicMaterial({ color: 0xffe296, transparent: true, opacity: .85, blending: THREE.AdditiveBlending, depthWrite: false })
+];
+for (const x of [-6.9, 0, 6.9]) {
+  for (let layer = 0; layer < 2; layer++) {
+    const length = layer ? 8 : 20;
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(layer ? .95 : 2.15, length, 20, 1, true), plumeMaterials[layer]);
+    flame.rotation.z = Math.PI;
+    flame.position.set(x, -length / 2, 0);
+    plume.add(flame);
+  }
+}
+plume.position.y = 1.8;
+plume.visible = false;
+rocketRig.add(plume);
+const smoke = new THREE.Group();
+const smokeGeometry = new THREE.IcosahedronGeometry(1, 1);
+const smokeMaterial = new THREE.MeshStandardMaterial({ color: 0xc5c6bb, transparent: true, opacity: .28, depthWrite: false });
+for (let i = 0; i < 55; i++) {
+  const puff = new THREE.Mesh(smokeGeometry, smokeMaterial);
+  puff.userData.angle = i * 2.39996;
+  smoke.add(puff);
+}
+pad.add(smoke);
+smoke.visible = false;
+const tracking = new THREE.PerspectiveCamera(44, 1, .1, 1800);
+
+function selectView(next) {
+  view = next;
+  if (document.pointerLockElement && next !== 'inside') document.exitPointerLock();
+  document.querySelectorAll('[data-view]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.view === view));
+  });
+}
+
+function setStage(next) {
+  stage = next;
+  stageTime = 0;
+  const label = phases[stage]?.title ?? (stage === 'landed' ? '06 / MARS YÜZEYİ' : 'DÜNYA / FIRLATMA RAMPASI');
+  get('label').textContent = label;
+  get('status').textContent = label;
+  get('flight-controls').hidden = stage === 'ready';
+  get('pause-btn').hidden = stage === 'landed';
+  get('map-btn').disabled = stage === 'launch';
+  get('reset-btn').hidden = stage === 'ready';
+  if (stage === 'cruise' && view !== 'inside') selectView('map');
+  if (stage === 'entry' && view === 'map') selectView('outside');
+}
+
+function updateFlight(dt) {
+  if (paused) return;
+  if (phases[stage]) {
+    stageTime += dt;
+    if (stageTime >= phases[stage].duration) setStage(phases[stage].next);
+  }
+  const t = Math.min(1, stageTime / (phases[stage]?.duration ?? 1));
+  plume.visible = stage === 'launch';
+  smoke.visible = stage === 'launch' && t < .88;
+  if (stage === 'launch') {
+    rocketRig.position.y = 190 * t ** 2;
+    plume.scale.y = 1 + Math.sin(stageTime * 41) * .085;
+    smoke.children.forEach((particle, i) => {
+      const spread = 1.2 + 25 * t;
+      const radius = spread * Math.sqrt(i / smoke.children.length);
+      const a = particle.userData.angle;
+      particle.position.set(Math.cos(a) * radius, 3 + (i % 9) * .48 + 4 * t, Math.sin(a) * radius);
+      particle.scale.setScalar(.55 + (i % 8) * .21 + t * 5);
+    });
+    tracking.position.set(105, 60 + rocketRig.position.y * .63, 151);
+    tracking.lookAt(-7, 43 + rocketRig.position.y, 0);
+  }
+  const reading = stage === 'launch' ? 'Kalkış profili · görsel zaman sıkıştırması' :
+    stage === 'orbit' ? '200 km park yörüngesi · ' + flight.earthOrbitSpeed.toFixed(2) + ' km/s · transfer Δv ' + flight.injection.toFixed(2) + ' km/s' :
+    stage === 'cruise' ? 'Gün ' + (t * flight.travelDays).toFixed(0) + ' / ' + flight.travelDays.toFixed(0) + ' · ' + transferAt(t).speed.toFixed(2) + ' km/s (Güneş’e göre)' :
+    stage === 'entry' ? '250 km ideal dairesel Mars yörüngesi · yakalama Δv ' + flight.capture.toFixed(2) + ' km/s' :
+    stage === 'descent' ? 'Temsili yönlendirilmiş iniş · motorlar açık' : stage === 'landed' ? 'Yüzey teması · motorlar kapalı' : '';
+  if (get('telemetry').textContent !== reading) get('telemetry').textContent = reading;
+}
+
+function togglePause() {
+  paused = !paused;
+  get('pause-btn').textContent = paused ? 'Uçuşa devam et' : 'Uçuşu duraklat';
+}
+
+function resetFlight() {
+  if (paused) togglePause();
+  setStage('ready');
+  selectView('outside');
+}
+
+
 function fit(model, height) {
   const bounds = new THREE.Box3().setFromObject(model);
   const pivot = new THREE.Group();
@@ -101,9 +208,9 @@ function setView(next) {
   powerLamp.material.emissive.set(0xa82b12);
   rocketRig.position.y = 0;
   get('label').textContent = inside ? 'TRANSFER / MÜRETTEBAT KABİNİ' : 'DÜNYA / FIRLATMA RAMPASI';
-  get('status').textContent = status[mode];
-  get('reset-btn').hidden = !inside;
-  
+  if (mode === 'ready') get('status').textContent = status[mode];
+  get('reset-btn').hidden = mode === 'ready';
+
 }
 
 function setWatch(open) {
@@ -120,10 +227,14 @@ function nearPanel() {
 }
 
 function interact() {
-  if (!active || !nearPanel()) return;
+  if (!active || !nearPanel() || (mode === 'transfer' && view !== 'inside')) return;
   if (mode === 'ready') {
     elapsed = 0;
     setView('launch');
+    setStage('launch');
+    camera.position.set(0, 1.53, 2.04);
+    camera.rotation.set(-.15, 0, 0);
+    selectView('outside');
   } else if (mode === 'transfer' && !powerRestored) {
     powerRestored = true;
     powerLamp.material.emissive.set(0x558f37);
@@ -161,18 +272,18 @@ function look(yaw, pitch) {
 }
 
 function update(dt) {
-  if (mode !== 'ready') elapsed += dt;
-  if (mode === 'launch') {
-    rocketRig.position.y = elapsed ** 2 * 2.5;
-    camera.rotation.x = .12 + elapsed * .12;
-    if (elapsed >= 6) setView('transfer');
-  } else if (active) {
+  if (mode !== 'ready' && !paused) elapsed += dt;
+  if (mode === 'launch' && stage === 'orbit') {
+    setView('transfer');
+    get('label').textContent = phases.orbit.title;
+  } else if (active && (mode === 'ready' || (mode === 'transfer' && view === 'inside'))) {
     move(dt);
   }
+  updateFlight(dt);
   const seconds = Math.floor(elapsed);
   get('mission-time').textContent = 'T+ ' + String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
   get('objective').textContent = missionObjective();
-  const hint = !active ? '' : mode === 'launch' ? 'Kalkış sürüyor' :
+  const hint = !active || (stage !== 'ready' && view !== 'inside') ? '' :
     mode === 'ready' ? (nearPanel() ? 'E · Kalkışı başlat' : 'W · Yeşil kalkış paneline yaklaş') :
     powerRestored ? 'Q · Görev bilgisayarını kontrol et' :
     nearPanel() ? 'E · Kabin gücünü geri getir' : 'Kırmızı güç paneline yaklaş';
@@ -180,6 +291,7 @@ function update(dt) {
 }
 
 function missionObjective() {
+  if (stage === 'landed') return 'Mars yüzeyine ulaşıldı';
   if (mode === 'transfer') return powerRestored ? 'Kabin gücü aktif' : 'Kabin gücünü geri getir';
   return objective[mode];
 }
@@ -193,9 +305,14 @@ get('reset-btn').onclick = () => {
   elapsed = 0;
   held.clear();
   setWatch(false);
+  resetFlight();
   setView('ready');
   renderer.domElement.focus();
 };
+document.querySelectorAll('[data-view]').forEach(button => {
+  button.onclick = () => selectView(button.dataset.view);
+});
+get('pause-btn').onclick = togglePause;
 get('watch-btn').onclick = () => setWatch(!watchOpen);
 renderer.domElement.tabIndex = 0;
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft']);
@@ -207,6 +324,12 @@ window.addEventListener('keydown', event => {
   }
   if (event.repeat) return;
   if (event.code === 'KeyE') interact();
+  if (stage !== 'ready') {
+    if (event.code === 'Digit1') selectView('outside');
+    if (event.code === 'Digit2') selectView('inside');
+    if (event.code === 'Digit3' && stage !== 'launch') selectView('map');
+    if (event.code === 'KeyP' && stage !== 'landed') togglePause();
+  }
   if (event.code === 'KeyQ') setWatch(!watchOpen);
   if (event.code === 'Escape') held.clear();
   if (event.code === 'KeyF') {
@@ -226,7 +349,7 @@ canvas.addEventListener('click', () => {
   }
 });
 canvas.addEventListener('pointermove', event => {
-  if (!active || mode === 'launch') return;
+  if (!active || (stage !== 'ready' && view !== 'inside')) return;
   if (document.pointerLockElement === canvas || event.buttons === 1) {
     look(-event.movementX * .003, -event.movementY * .003);
   }
@@ -245,6 +368,7 @@ Promise.all([asset('sls'), asset('orion'), asset('astronaut')]).then(([sls, orio
   const rocket = fit(sls.scene, 98);
   rocket.position.y = 51;
   rocketRig.add(rocket);
+  flightScene.capsule.add(fit(orion.scene.clone(), 1.2));
   const capsule = fit(orion.scene, .48);
   capsule.position.set(2.85, 1.02, .12);
   box(cabin, [.68, .08, .62], [2.85, .72, .12], 0x435d69);
@@ -268,7 +392,26 @@ let previous = performance.now();
 let manualTime = false;
 function render() {
 
-  renderer.render(scene, camera);
+  const inside = stage !== 'ready' && view === 'inside';
+  get('crosshair').hidden = stage !== 'ready' && !inside;
+  if (stage === 'ready') {
+    renderer.render(scene, camera);
+  } else if (inside) {
+    pad.visible = false;
+    cabin.visible = true;
+    scene.background.setHex(0x101b2a);
+    scene.fog = null;
+    renderer.render(scene, camera);
+  } else if (stage === 'launch') {
+    pad.visible = true;
+    cabin.visible = false;
+    scene.background.setHex(0x91aeb8);
+    tracking.aspect = camera.aspect;
+    tracking.updateProjectionMatrix();
+    renderer.render(scene, tracking);
+  } else {
+    flightScene.draw(renderer, stage, stageTime / (phases[stage]?.duration ?? 1), view === 'map');
+  }
 }
 renderer.setAnimationLoop(now => {
   if (!manualTime) update(Math.min((now - previous) / 1000, .05));
@@ -281,7 +424,7 @@ window.advanceTime = ms => {
   render();
 };
 window.render_game_to_text = () => JSON.stringify({
-  mode, ready, elapsedSeconds: Math.floor(elapsed), crew: 3, watchOpen,
+  mode, stage, stageTime, view, paused, ready, elapsedSeconds: Math.floor(elapsed), crew: 3, watchOpen,
   objective: missionObjective(), active, powerRestored, nearPanel: nearPanel(),
   position: { x: camera.position.x, z: camera.position.z }, rocketHeightMeters: Math.round(rocketRig.position.y),
   coordinates: 'Metre, Y yukarı'

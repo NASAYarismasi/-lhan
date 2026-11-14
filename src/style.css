@@ -12,3 +12,11 @@
 #prompt:empty{display:none}
 main:fullscreen{background:#161e20}
 canvas:focus{outline:none}
+
+#flight-controls{padding:15px;border:1px solid #ffffff28;border-radius:6px;background:#202c2d}
+.camera-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.camera-buttons button{background:#273536;color:#edf2e8;padding:8px 3px}
+.camera-buttons button[aria-pressed=true]{background:#d9f29f;color:#17241a}
+#telemetry{margin:12px 0;font:13px/1.5 monospace;color:#d7e7ee}
+#pause-btn{width:100%;padding:8px}
+#crosshair[hidden]{display:none}

@@ -15,6 +15,12 @@
   <aside>
     <header><p>GÖREV KONTROL</p><h1>Mars’a İlk Koloni</h1></header>
     <div class="card"><p>MÜRETTEBAT</p><strong>3 astronot</strong><div id="status" role="status">NASA modelleri yükleniyor…</div></div>
+    <section id="flight-controls" hidden>
+      <p>KAMERALAR</p>
+      <div class="camera-buttons"><button data-view="outside" aria-pressed="true">1 Dış</button><button data-view="inside" aria-pressed="false">2 Kabin</button><button id="map-btn" data-view="map" aria-pressed="false">3 Rota</button></div>
+      <div id="telemetry"></div>
+      <button id="pause-btn">Uçuşu duraklat</button>
+    </section>
     <div class="card" id="watch" hidden><p>KOL BİLGİSAYARI</p><strong id="mission-time">T+ 00:00</strong><div id="objective"></div></div>
     <footer><button id="reset-btn" hidden>Görevi sıfırla</button><button id="watch-btn" aria-expanded="false" disabled>Kol bilgisayarını aç</button></footer>
   </aside>
