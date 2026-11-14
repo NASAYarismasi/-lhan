@@ -1,3 +1,6 @@
+import { createGreenhouse } from "../../sistemler/sera.mjs"
+import { makeKit } from "../../sistemler/equipment-kit.mjs"
+import { playPressureHiss } from "./greenhouse-pressure.mjs"
 import { createSurfaceAudio } from "./surface-audio.mjs"
 import { createAirSystem } from "../../sistemler/hava.mjs"
 import { createWaterSystem } from "../../sistemler/su.mjs"
@@ -786,6 +789,7 @@ async function initMarsEnvironment() {
   const centers = [-9, 0, 9]
   const radius = 3.65
   const locks = []
+  const greenhouseSite={x:19,z:25}
   const waterSite = {x:64,z:-26}
   const floorY = Math.max(...centers.flatMap(x => [-3.8,3.8].flatMap(dx =>
     [-3.65,3.65].map(z => getTerrainHeight(x+dx,z))))) + .34
@@ -808,8 +812,8 @@ async function initMarsEnvironment() {
       const ports=["(habitatPosition.z > 2.15 && abs(habitatPosition.x) < .82 && habitatPosition.y < 2.19)"]
       if(index>0) ports.push("(habitatPosition.x < -2.4 && abs(habitatPosition.z) < .94 && habitatPosition.y < 2.44)")
       if(index<2) ports.push("(habitatPosition.x > 2.4 && abs(habitatPosition.z) < .94 && habitatPosition.y < 2.44)")
-      ports.push("(habitatPosition.z > 2.3 && length((habitatPosition.xy-vec2(-1.24,1.56))/vec2(.32,.24))<1.0)")
-      ports.push("(habitatPosition.z > 2.3 && length((habitatPosition.xy-vec2(1.24,1.56))/vec2(.32,.24))<1.0)")
+      ports.push("(habitatPosition.z > 2.3 && length((habitatPosition.xy-vec2(-1.24,1.56))/vec2(.29,.29))<1.0)")
+      ports.push("(habitatPosition.z > 2.3 && length((habitatPosition.xy-vec2(1.24,1.56))/vec2(.29,.29))<1.0)")
       shader.fragmentShader="varying vec3 habitatPosition;\n"+shader.fragmentShader
       shader.fragmentShader=shader.fragmentShader.replace("#include <color_fragment>",`
         #include <color_fragment>
@@ -858,10 +862,15 @@ async function initMarsEnvironment() {
       fastener.rotation.y=Math.PI/2-a
     }
     for(const side of [-1,1]){
-      const bezel=mesh(group,new T.TorusGeometry(.29,.047,8,28),steel,side*1.24,1.56*(index===1?1.28:.94),3.08)
-      bezel.scale.x=1.17
-      const window=mesh(group,new T.SphereGeometry(1,24,16),glazing,side*1.24,1.56*(index===1?1.28:.94),3.02)
-      window.scale.set(.35,.27,.47)
+      const y=1.56*shellHeight
+      const porthole=new T.Group()
+      porthole.position.set(side*1.24,y,2.96)
+      porthole.rotation.y=side*.29
+      group.add(porthole)
+      const bezel=mesh(porthole,new T.CylinderGeometry(.37,.37,.45,48,1,true),steel,0,0,.065)
+      bezel.rotation.x=Math.PI/2
+      mesh(porthole,new T.TorusGeometry(.325,.048,12,48),steel,0,0,.29)
+      mesh(porthole,new T.CircleGeometry(.327,48),glazing,0,0,.284)
     }
     block(group,1.7,.055,.22,light,0,2.83,-.5)
     const lamp=new T.PointLight(0xffe6b8,10,6)
@@ -902,22 +911,50 @@ async function initMarsEnvironment() {
     for (const side of [-1,1]) {
       block(chamber,.14,2.12,2.28,seal,side*.91,1.06,4.01)
     }
-    const makeHatch = z => {
-      const frame = new T.Group()
-      frame.position.z = z
-      chamber.add(frame)
-      for (const side of [-1,1]) block(frame,.16,2.13,.18,steel,side*.81,1.07,0)
-      block(frame,1.79,.15,.18,steel,0,2.08,0)
-      const leaf = new T.Group()
-      frame.add(leaf)
-      for (const side of [-1,1]) block(leaf,.55,1.98,.11,hatchMat,side*.52,1.00,0)
-      block(leaf,.5,.64,.11,hatchMat,0,1.66,0)
-      block(leaf,.5,.99,.11,hatchMat,0,.50,0)
-      block(leaf,.49,.31,.045,glazing,0,1.147,0)
-      block(leaf,.28,.054,.10,steel,.29,.88,.07)
-      return leaf
+    const kit=makeKit(chamber)
+    const brushed=document.createElement("canvas")
+    brushed.width=brushed.height=128
+    const ctx=brushed.getContext("2d")
+    ctx.fillStyle="#89959b"
+    ctx.fillRect(0,0,128,128)
+    for(let i=0;i<128;i++){
+      ctx.fillStyle=i%3?"rgba(225,235,240,.09)":"rgba(25,35,45,.12)"
+      ctx.fillRect(0,i,128,1)
     }
-    const lock = { x, inner:makeHatch(2.92), outer:makeHatch(5.12) }
+    const metalTexture=new T.CanvasTexture(brushed)
+    metalTexture.colorSpace=T.SRGBColorSpace
+    const hatchMaterial=new T.MeshStandardMaterial({color:0xa9b7bf,map:metalTexture,metalness:.72,roughness:.42})
+    const makeHatch = z => {
+      const hatch=new T.Group()
+      chamber.add(hatch)
+      hatch.position.z=z
+      const w=1.59,h=2,wY=1.53,r=.23
+      const outline=new T.Shape().moveTo(-w/2,.035).lineTo(w/2,.035).lineTo(w/2,h).lineTo(-w/2,h).closePath()
+      const hole=new T.Path()
+      hole.absarc(0,wY,r,0,Math.PI*2,true)
+      outline.holes.push(hole)
+      const plate=new T.ExtrudeGeometry(outline,{depth:.16,bevelEnabled:false,curveSegments:32})
+      mesh(hatch,plate,hatchMaterial,0,0,-.08)
+      mesh(hatch,new T.CircleGeometry(r+.012,48),glazing,0,wY,0)
+      const warning=new T.MeshStandardMaterial({color:0xd6a639,roughness:.7})
+      for(const face of [-1,1]){
+        const zz=face*.105
+        mesh(hatch,new T.TorusGeometry(r+.014,.026,10,48),steel,0,wY,zz)
+        for(const x of [-w/2+.045,w/2-.045]) kit.box(.065,h-.035,.045,x,1.02,zz,"steel",hatch)
+        for(const y of [.065,h-.04]) kit.box(w,.065,.045,0,y,zz,"steel",hatch)
+        kit.box(.065,.42,.10,w*.34,1.05,zz+face*.07,"steel",hatch)
+        for(const y of [.84,1.26]) kit.box(.10,.065,.13,w*.34,y,zz+face*.025,"dark",hatch)
+        kit.box(w*.68,.20,.025,0,.38,zz,"dark",hatch)
+        for(let i=0;i<8;i++){
+          const stripe=kit.box(.09,.16,.012,-w*.28+i*w*.08,.38,zz+face*.02,warning,hatch)
+          stripe.rotation.z=-.35
+        }
+      }
+      return hatch
+    }
+    const inner=makeHatch(2.92),outer=makeHatch(5.12)
+    const lock={x,innerZ:2.35,outerZ:6.05,chamberZ:4.02,floor:floorY,
+      setDoors(innerOpen,outerOpen){inner.position.x=innerOpen?-1.65:0;outer.position.x=outerOpen?1.65:0}}
     locks.push(lock)
     for(const z of [3.24,4.86]) block(chamber,.45,.05,.14,light,0,2.03,z)
     const chamberLight = new T.PointLight(0xffdeb0,3,3.6)
@@ -943,7 +980,9 @@ async function initMarsEnvironment() {
   }
   const insideZone=(x,z)=>centers.some(cx=>Math.hypot(x-cx,z)<radius-.33)
     || (Math.abs(z)<.73 && Math.abs(x)<9)
-  const outsideObstacle=(x,z)=>centers.some(cx=>Math.hypot(x-cx,z)<radius+.25)
+  const outsideObstacle=(x,z)=> (Math.abs(x-greenhouseSite.x)<5.55 && z>greenhouseSite.z-6.6 && z<greenhouseSite.z+6.6)
+    || (Math.abs(x-greenhouseSite.x)<1.55 && z>=greenhouseSite.z+6.6 && z<greenhouseSite.z+9.05)
+    || centers.some(cx=>Math.hypot(x-cx,z)<radius+.25)
     || (Math.abs(z)<1.46 && Math.abs(x)<9)
     || locks.some(lock=>Math.abs(x-lock.x)<1.14 && z>2.85 && z<5.34)
 
@@ -969,6 +1008,22 @@ async function initMarsEnvironment() {
   const solar = addSolarFarm(T, scene, getTerrainHeight, baseObstacles)
 
   scene.add(colonyGroup)
+  const greenhouse=createGreenhouse(scene)
+  const greenhouseGround=getTerrainHeight(greenhouseSite.x,greenhouseSite.z)
+  greenhouse.group.position.set(greenhouseSite.x,greenhouseGround,greenhouseSite.z)
+  const greenhouseLock={x:greenhouseSite.x,innerZ:greenhouseSite.z+5.08,outerZ:greenhouseSite.z+10.1,
+    chamberZ:greenhouseSite.z+7.45,floor:greenhouseGround+.27,
+    greenhouse:true,setDoors:greenhouse.setAirlock}
+  function greenhouseWalkable(x,z) {
+    x-=greenhouseSite.x
+    z-=greenhouseSite.z
+    if(Math.abs(x)>4.55 || z< -5.5 || z>5.4) return false
+    if(x< -2.55 && x> -3.95 && z<4.9 && z> -5.1) return false
+    for(let row=0;row<3;row++) for(let col=0;col<2;col++) {
+      if(Math.abs(x-(1.85+col*1.65))<.95 && Math.abs(z-(-3.8+row*3.35))<1.45) return false
+    }
+    return !(Math.abs(x-2.85)<.85 && z>4.48)
+  }
   const systems = el("first-night") ? [
     createAirSystem(scene,{x:19,z:5,heightAt:getTerrainHeight}),
     createWaterSystem(scene,{...waterSite,heightAt:getTerrainHeight})
@@ -977,7 +1032,7 @@ async function initMarsEnvironment() {
     group.traverse(part=>{if(part.isMesh){part.castShadow=true;part.receiveShadow=true}})
     baseObstacles.push(new T.Box3().setFromObject(group).expandByScalar(.25))
   }
-  if (systems.length) connectFirstNight(...systems,sampleLanding)
+  if (systems.length) connectFirstNight(...systems,sampleLanding,greenhouse)
   const portraitAssets = el("scene-rover")
   if (portraitAssets) {
     const assetBytes = id => Uint8Array.from(atob(el(id).textContent.trim()), char=>char.charCodeAt(0)).buffer
@@ -1012,6 +1067,7 @@ async function initMarsEnvironment() {
   // CAMERA VIEWPOINTS (MARS SURFACE)
   // ==========================================================================
   const poses = {
+    greenhouse:{pos:[greenhouseSite.x+13,8,greenhouseSite.z+18],target:[greenhouseSite.x,1.8,greenhouseSite.z]},
     air:{pos:[24,5.5,15],target:[19,1.6,5]},
     water:{pos:[waterSite.x-9,6.1,waterSite.z+11],target:[waterSite.x-2,1.65,waterSite.z]},
     solar: {
@@ -1047,15 +1103,15 @@ async function initMarsEnvironment() {
     return dx*dx+dz*dz<bodyRadius*bodyRadius
   }
   function movementAt(x,z,feet,allowStep) {
-    let ground=indoors?floorY:getTerrainHeight(x,z)
+    let ground=indoors?(inGreenhouse?greenhouseLock.floor:floorY):getTerrainHeight(x,z)
     if(!indoors && z>=5.12 && z<=6.65) {
       const lock=locks.find(entry=>Math.abs(x-entry.x)<.76)
       if(lock) ground=Math.max(ground,T.MathUtils.lerp(floorY,lock.rampFootY,(z-5.12)/1.53))
     }
     let support=ground
     if (Math.abs(x)>=170 || Math.abs(z)>=170
-        || (indoors?!insideZone(x,z):outsideObstacle(x,z))) return {blocked:true,support}
-    const obstacles=indoors?[indoorObstacles]:[baseObstacles,rockObstacles]
+        || (indoors?!(inGreenhouse?greenhouseWalkable(x,z):insideZone(x,z)):outsideObstacle(x,z))) return {blocked:true,support}
+    const obstacles=indoors?(inGreenhouse?[]:[indoorObstacles]):[baseObstacles,rockObstacles]
     for(const layer of obstacles) for(const box of layer) {
       if(!nearBox(box,x,z)) continue
       const top=box.max.y
@@ -1068,6 +1124,7 @@ async function initMarsEnvironment() {
     return {blocked:false,support}
   }
   let indoors = false
+  let inGreenhouse=false
   let airlockCycle = null
   let fpsActive = false
   const eyeHeight = 1.75
@@ -1091,11 +1148,12 @@ async function initMarsEnvironment() {
   function setFPSActive(active) {
     fpsActive = active
     if (airlockCycle) {
-      airlockCycle.lock.inner.position.x = airlockCycle.lock.outer.position.x = 0
+      airlockCycle.lock.setDoors(false,false)
       airlockCycle = null
       renderer.shadowMap.needsUpdate = true
     }
     indoors = false
+    inGreenhouse=false
     fallSpeed = 0
     grounded = true
     jumpQueued = false
@@ -1239,6 +1297,7 @@ async function initMarsEnvironment() {
         const viewLabels = {
           air:"Hava tesisi · O₂ üretimi ve CO₂ temizliği",
           water:"Su tesisi · Buz çıkarma ve geri kazanım",
+          greenhouse:"Sera · Alg ve buğday yetiştirme",
           solar: "Güneş tarlası · 42 masa · 420 panel",
           panorama: "Bakış: Mars Ovası Panoraması | Mod: Bilimsel Keşif",
           base: "Bakış: Düz Koloni Sahası | Modül: ECLSS",
@@ -1282,62 +1341,65 @@ async function initMarsEnvironment() {
   }
 
   function cycleAirlock(direct = false) {
-    if (airlockCycle) return
-    audio.enable()
-    const wasActive = fpsActive
-    if (!fpsActive) setFPSActive(true)
-    const fromZ = indoors ? 2.35 : 6.05
-    const nearest = locks.reduce((best,lock) =>
-      Math.abs(camera.position.x-lock.x)<Math.abs(camera.position.x-best.x)?lock:best,locks[1])
-    const lock = wasActive ? nearest : locks[1]
-    if (!direct && Math.hypot(camera.position.x-lock.x,camera.position.z-fromZ)>2.25) {
-      airlockStatus("En yakın kubbenin hava kilidine yaklaş ve E’ye bas.")
+    if (airlockCycle) {
+      if(airlockCycle.ready && !airlockCycle.released) {
+        airlockCycle.released=true
+        airlockCycle.releaseTime=performance.now()
+      }
       return
     }
-    airlockCycle={lock, entering:!indoors, elapsed:0, phase:-1}
-    camera.position.set(lock.x,(indoors?floorY:getTerrainHeight(lock.x,fromZ))+eyeHeight,fromZ)
+    audio.enable()
+    const fromOverview=!fpsActive
+    if (!fpsActive) setFPSActive(true)
+    const candidates=indoors?(inGreenhouse?[greenhouseLock]:locks):[...locks,greenhouseLock]
+    const distance=lock=>Math.hypot(camera.position.x-lock.x,camera.position.z-(indoors?lock.innerZ:lock.outerZ))
+    const nearest=candidates.reduce((best,lock)=>distance(lock)<distance(best)?lock:best)
+    const lock=fromOverview?(activeView==="greenhouse"?greenhouseLock:locks[1]):nearest
+    if (!direct && distance(lock)>2.25) {
+      airlockStatus("Hava kilidine yaklaş ve E’ye bas.")
+      return
+    }
+    airlockCycle={lock,entering:!indoors,start:performance.now(),phase:-1,ready:false,released:false}
+    playPressureHiss()
     lookAngles.yaw=indoors?Math.PI:0
     lookAngles.pitch=0
+    camera.position.set(lock.x,lock.floor+eyeHeight,lock.chamberZ)
     updateFPSCamera()
   }
 
-  function updateAirlock(delta) {
+  function updateAirlock(now) {
     if (!airlockCycle) return
-    const {lock,entering}=airlockCycle
-    const first=entering?lock.outer:lock.inner
-    const second=entering?lock.inner:lock.outer
-    const elapsed=airlockCycle.elapsed+=delta
-    const phase=elapsed<.65?0:elapsed<1.3?1:elapsed<2.55?2:elapsed<3.2?3:4
+    const {lock,entering,start,releaseTime}=airlockCycle
+    const elapsed=(now-start)/1000
+    const phase=elapsed<1.2?0:elapsed<4.2?1:!airlockCycle.released?2:now-releaseTime<1200?3:4
     if (phase===airlockCycle.phase) return
     airlockCycle.phase=phase
     if (phase===0) {
-      first.position.x=1.64
-      audio.door(true)
+      lock.setDoors(!entering,entering,true)
       airlockStatus(entering?"Dış kapı açık · Hazneye giriş":"İç kapı açık · Hazneye giriş")
     } else if (phase===1) {
-      camera.position.set(lock.x,floorY+eyeHeight,4.02)
-      first.position.x=0
-      audio.door(false)
-      airlockStatus("İki kapı kapalı · Hazne sızdırmazlığı kontrol ediliyor")
+      lock.setDoors(false,false,true)
+      airlockStatus(entering?"İki kapı kapalı · Basınç eşitleniyor":"İki kapı kapalı · Hava geri kazanılıyor")
     } else if (phase===2) {
-      audio.pressure()
-      airlockStatus(entering?"Hazne kabin basıncına getiriliyor":"Hazne dış ortam basıncına getiriliyor")
+      lock.setDoors(false,false)
+      airlockCycle.ready=true
+      hatchButton.textContent="Sonraki kapıyı aç"
+      airlockStatus(entering?"Basınç hazır · E ile iç kapıyı aç":"Basınç hazır · E ile dış kapıyı aç")
     } else if (phase===3) {
-      second.position.x=1.64
-      audio.door(true)
+      lock.setDoors(entering,!entering)
       airlockStatus(entering?"İç kapı açık · Kabine geçiş":"Dış kapı açık · Yüzeye geçiş")
     } else {
       indoors=entering
-      const z=indoors?2.35:6.05
-      camera.position.set(lock.x,(indoors?floorY:getTerrainHeight(lock.x,z))+eyeHeight,z)
+      inGreenhouse=entering && Boolean(lock.greenhouse)
+      const z=indoors?lock.innerZ:lock.outerZ
+      camera.position.set(lock.x,(indoors?lock.floor:getTerrainHeight(lock.x,z))+eyeHeight,z)
       fallSpeed=0
       grounded=true
       stride=0
-      second.position.x=0
-      audio.door(false)
+      lock.setDoors(false,false)
       airlockCycle=null
       hatchButton.textContent=indoors?"Hava kilidinden çık":"Hava kilidinden gir"
-      airlockStatus(indoors?"İç mekân · Yan tüneller diğer kubbelere bağlanır":"Dış ortam · E ile hava kilidini çalıştır")
+      airlockStatus(indoors?(inGreenhouse?"Sera içi · WASD ile gezin":"İç mekân · Yan tüneller diğer kubbelere bağlanır"):"Dış ortam · E ile hava kilidini çalıştır")
     }
     updateFPSCamera()
     renderer.shadowMap.needsUpdate=true
@@ -1441,12 +1503,13 @@ async function initMarsEnvironment() {
     atmosphereMesh.rotation.y += delta * 0.05
 
     if (fpsActive) {
-      updateAirlock(Math.min(.60,realDelta))
+      updateAirlock(time)
       fps.update(delta)
     } else {
       controls.update()
     }
 
+    greenhouse.frame(time/1000)
     for (const system of systems) system.frame(time/1000,delta)
     renderer.render(scene, camera)
   })
