@@ -11,6 +11,14 @@ Mars’a ulaşan üç astronotun yanlarında getirdikleri ekipmanla üs kurabild
 
 **İlk teslim:** Örnek iniş verisiyle üç sol ilerletilebilen koloni. Yeterli ve yetersiz enerjiyle birer deneme yapın.
 
+## Oynanabilir FPS demosu
+
+[MARS-TARIM-ATOLYE.html](./MARS-TARIM-ATOLYE.html) dosyasını indir, sonra Chrome veya Edge’de çift tıklayarak aç. Oyun çevrimdışı çalışır ve doğrudan astronotun gözünden başlar.
+
+- **WASD** ile yürü. **E** ile kaynak topla veya seçtiğin modülü hedeflediğin zemine yerleştir. **Esc** ile üst görünüme geç.
+- **Atölye ve tarım** bölümünde buz ve organik atığı işle, kapalı tarım kabinleri üret. Hasadı erzağa aktar veya kredi karşılığında teslim et. Tarım XP’si yeni tarifler açar.
+- [Ekip paketi](./MARS-KOLONI-EKIP.zip) derlenebilir kaynakları ve GLB modellerini içerir. [Entegrasyon kılavuzu](./MARS-ENTEGRASYON.md) ortak iniş verisini ve görev raporunu açıklar. [Koloni simülasyonu](./mars-koloni.mjs) ve [atölye kuralları](./mars-atolye.mjs) doğrudan incelenebilir.
+
 ## Ortak iniş verisi
 
 Emre üretir, Samet aktarır, İhan koloni başlangıcında okur. İlk entegrasyon için aynı örneği kullanın. Sayılar oyun birimidir.
