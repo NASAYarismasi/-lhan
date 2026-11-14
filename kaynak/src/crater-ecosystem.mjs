@@ -1,4 +1,5 @@
 import * as T from "three"
+import { createSolarFarm } from "./solar-farm.mjs"
 import { OrbitControls } from "three/addons/controls/OrbitControls.js"
 
 // DOM Elements
@@ -85,6 +86,7 @@ const CRATERS = [
 // Düz zemin bölgeleri: koloni sahası ve iniş düzlükleri.
 // inner yarıçapında tamamen düz, outer yarıçapına kadar yumuşak geçiş.
 const FLAT_ZONES = [
+  { cx: -62, cz: 52, inner: 42, outer: 58 }, // Engineered solar-field terrace
   { cx: 0, cz: 0, inner: 36, outer: 60 },      // Koloni sahası (krater tabanı)
   { cx: -150, cz: 130, inner: 42, outer: 78 }, // Batı iniş düzlüğü
   { cx: 160, cz: -140, inner: 46, outer: 84 }, // Doğu iniş düzlüğü
@@ -754,7 +756,7 @@ async function initCraterEnvironment() {
         z = c.cz + Math.sin(angle) * distance
       }
       // Üssün oturduğu alanı boş bırak
-      if (Math.hypot(x, z) < options.pad) continue
+      if (Math.hypot(x, z) < options.pad || ((x + 62 > -27 && x + 62 < 41) && Math.abs(z - 52) < 31)) continue
 
       const scale = options.minScale + Math.pow(rRnd(), 2.6) * (options.maxScale - options.minScale)
       dummy.position.set(x, getTerrainHeight(x, z) + scale * (0.32 - options.bury), z)
@@ -946,34 +948,8 @@ async function initCraterEnvironment() {
   }
   placeBaseItem(createECLSSModule(), 8, 8, -0.3)
 
-  // 4. Solar Array Farm (Güneş Paneli Dizisi)
-  function createSolarArray() {
-    const group = new T.Group()
-    
-    const mast = new T.Mesh(
-      new T.CylinderGeometry(0.18, 0.22, 3.6, 12),
-      new T.MeshStandardMaterial({ color: 0x666b73, metalness: 0.8 })
-    )
-    mast.position.y = 1.8
-    group.add(mast)
-
-    // Tilted dual solar wings
-    const panelGeo = new T.BoxGeometry(4.8, 0.1, 2.2)
-    const panelMat = new T.MeshStandardMaterial({
-      color: 0x112244,
-      metalness: 0.9,
-      roughness: 0.18
-    })
-    const panel = new T.Mesh(panelGeo, panelMat)
-    panel.position.set(0, 3.6, 0)
-    panel.rotation.x = 0.42 // Tilted toward solar incident vector
-    panel.rotation.y = 0.55
-    group.add(panel)
-
-    return group
-  }
-  placeBaseItem(createSolarArray(), -10, 8, 0.1)
-  placeBaseItem(createSolarArray(), -16, 12, 0.1)
+  // Detailed, dimensioned PV field on its own level terrace.
+  const solarFarm = createSolarFarm(scene, getTerrainHeight, baseObstacles)
 
   // 5. High-Gain Communications Dish Antenna
   function createCommsDish() {
@@ -1073,6 +1049,7 @@ async function initCraterEnvironment() {
   // CAMERA VIEWPOINTS (MARS SURFACE)
   // ==========================================================================
   const poses = {
+    solar: { pos: [8, solarFarm.level + 49, 119], target: [-55, solarFarm.level, 52] },
     // Exact perspective matching the user's uploaded BBC News photo
     // Elevated camera looking across the curved horizon with deep crater shadows
     panorama: {
@@ -1239,6 +1216,7 @@ async function initCraterEnvironment() {
         const viewLabels = {
           panorama: "Bakış: Mars Ovası Panoraması | Mod: Bilimsel Keşif",
           rim: "Bakış: 72m Krater Kenarı (Rim Crest) | Yükseklik: +14m",
+          solar: "Bakış: Mars Güneş Tarlası | 42 masa / 420 panel / 840 m²",
           base: "Bakış: Düz Koloni Sahası | Modül: ECLSS",
           basin: "Bakış: Krater Tabanı (Derin Çanak) | Derinlik: -18.5m"
         }
@@ -1253,7 +1231,7 @@ async function initCraterEnvironment() {
   })
 
   // Set initial view matching reference image
-  setView("panorama")
+  setView("solar")
 
   // Pointer lock & mouse movement
   canvas.addEventListener("click", () => {
