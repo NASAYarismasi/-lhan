@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jezero · Yaşam Destek Ekosistemi</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#151513;color:#eee8dd;font:15px/1.5 system-ui,sans-serif}main{max-width:1500px;margin:auto;padding:25px clamp(14px,3vw,46px)}h1{font-size:clamp(29px,4vw,52px);line-height:1.05;margin:0 0 9px}h2{font-size:20px;margin:0 0 10px}p{margin:8px 0}.layout{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(300px,1fr);gap:16px;margin:22px 0}.panel{border:1px solid #514940;background:#221f1b;border-radius:12px;overflow:hidden}.pad{padding:16px}#viewport{height:clamp(350px,62vh,730px);position:relative;background:#51423b}canvas{display:block;width:100%;height:100%;touch-action:none}.bar{display:flex;flex-wrap:wrap;gap:8px;padding:12px}button{background:#372e26;color:#fff4e6;border:1px solid #765f4d;padding:7px 12px;border-radius:6px;cursor:pointer;font:inherit}button[aria-pressed=true]{background:#eab48a;color:#2b1b12}label{display:block;margin:10px 0}input{accent-color:#eab48a}input[type=range]{width:100%}.rows{display:grid;gap:1px;background:#514940;margin:14px 0}.row{background:#221f1b;padding:10px}.row span{display:block;color:#ffd0aa;font-size:22px;font-weight:650}small,.muted{color:#cdc0b4}a{color:#ffd0aa}footer{margin:15px 0}#scene-status{position:absolute;left:13px;top:12px;background:#191614df;padding:5px 9px;border-radius:4px}#scene-status:empty{display:none}@media(max-width:850px){.layout{grid-template-columns:1fr}}
+</style>
+<main>
+<header><h1>Jezero Yaşam Destek Ekosistemi</h1><p class="muted">Mars yüzeyinde üç kişilik bir araştırma üssü konsepti</p></header>
+<div class="layout">
+<section class="panel" aria-label="Jezero üç boyutlu arazi">
+<div id="viewport"><canvas id="scene" tabindex="0" aria-describedby="camera-help" aria-label="HiRISE verisinden Jezero arazisi ve koloni konsepti"></canvas><small id="scene-status" role="status">Arazi ve modeller yükleniyor…</small></div>
+<div class="bar" id="views"><button data-view="panorama" aria-pressed="true">Arazi panoraması</button><button data-view="base" aria-pressed="false">Yaşam modülü</button><button data-view="study" aria-pressed="false">Sera ve arıtma</button><button id="fps-toggle" aria-pressed="false" disabled>Astronotun gözünden gez</button></div>
+<div class="pad"><small id="camera-help">Fareyle sürükleyerek bak, tekerlekle yaklaş.</small> <small>Jezero yükseklik ağı ve yörünge görüntüsü üzerine referanstaki görünüme uygun temsili krater kabartmaları eklendi.</small></div>
+</section>
+<section class="panel pad">
+<h2>Yaşam destek dengesi</h2>
+<label>İnceleme süresi <output id="days-value"></output><input id="days" type="range" min="1" max="30" value="10"></label>
+<label>Su geri kazanımı <output id="recovery-value"></output><input id="recovery" type="range" min="0" max="98" value="85"></label>
+<label><input id="electrolysis" type="checkbox" checked> Oksijeni sudan üret</label>
+<div class="rows" aria-live="polite">
+<div class="row">Kullanım ve elektroliz için dışarıdan su<span id="water"></span></div>
+<div class="row">Depodan karşılanacak oksijen<span id="oxygen"></span></div>
+<div class="row">Mürettebatın toplam gıda enerjisi<span id="food"></span></div>
+</div>
+<small>NASA tasarım referansı kişi başına Dünya gününde 3,52 kg içme ve yemek suyu, 0,84 kg oksijen ve 3.035 kcal. Geri kazanım oranı hesapta seçilen varsayımdır. Elektrik, acil durum rezervleri ve bakım sarfları bu hesaba dahil değildir.</small>
+</section>
+</div>
+<section class="panel pad"><h2>Kapalı döngüler</h2>
+<p><strong>Su.</strong> Kabin yoğuşması ve atık su toplanır, arıtılır ve kalite kontrolünden sonra temiz su tankına döner.</p>
+<p><strong>Hava.</strong> CO₂ tutucu solunan havadan karbondioksiti ayırır. Elektroliz temiz su ve elektrik kullanarak oksijen üretir. Hidrojen ayrı bir akışta yönetilir.</p>
+<p><strong>Gıda.</strong> Dünya’dan gelen paketli öğünler temel erzağı sağlar. Kapalı hidroponik sera, ışık ve dengeli besin çözeltisiyle ek ürün yetiştirir.</p>
+</section>
+<footer><small>Arazi gerçek ölçümlere dayanır. Üs yerleşimi, aydınlatma ve donanım konumları konsept görselleştirmesidir. <a href="https://www.uahirise.org/dtm/dtm.php?ID=ESP_048842_1985">Jezero HiRISE · NASA/JPL-Caltech/UArizona</a> · <a href="https://www.nasa.gov/reference/environmental-control-and-life-support-systems-eclss/">NASA ISS yaşam desteği</a> · <a href="https://ntrs.nasa.gov/citations/20160005782">NASA tüketim değerleri</a> · <a href="https://www.nasa.gov/reference/7-0-habit-ability-functions-vol-2/">NASA gıda enerjisi</a> · <a href="https://science.nasa.gov/3d-resources/">NASA 3B arşivi</a></small></footer>
+</main>
+<script id="ortho" type="application/octet-stream"></script>
+<script id="habitat" type="application/octet-stream"></script>
+<script id="rover" type="application/octet-stream"></script>
+<script id="decoder" type="text/plain"></script>
+<script id="wasm" type="application/octet-stream"></script>
+<script type="module" src="./src/baslat-jezero.js"></script>
+

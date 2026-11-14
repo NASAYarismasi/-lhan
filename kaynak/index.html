@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mars'a İlk Koloni · Kaynak Proje</title>
+<style>
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px;
+       background:radial-gradient(circle at 50% 0%,#2a1712,#0a0909 65%);
+       color:#f6ede4;font:16px/1.55 "Segoe UI",system-ui,sans-serif}
+  main{max-width:1040px;width:100%}
+  h1{font-size:clamp(30px,4vw,46px);line-height:1.05;margin:0 0 10px;letter-spacing:-.03em}
+  p.lead{color:#d7c4bd;margin:0 0 28px;max-width:60ch}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+  a.card{display:block;padding:20px;border:1px solid #4b3b3c;border-radius:14px;background:#1f1d20;
+         color:inherit;text-decoration:none;transition:border-color .15s,transform .15s}
+  a.card:hover,a.card:focus-visible{border-color:#f4a97e;transform:translateY(-2px)}
+  h2{font-size:19px;margin:0 0 6px}
+  small{display:block;color:#d7c4bd;font-size:13px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+       color:#291910;background:#f4a97e;border-radius:999px;padding:2px 9px;margin-bottom:10px}
+  footer{margin-top:26px;color:#a9999a;font-size:13px}
+  code{background:#2a2426;border-radius:4px;padding:1px 6px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Mars'a İlk Koloni</h1>
+  <p class="lead">NASA yarışması için hazırlanan Ay ve Mars demolarının düzenlenebilir kaynak projesi.
+    Aşağıdaki sayfaları aç, kodu <code>src/</code> klasöründe değiştir; tarayıcı anında yenilenir.</p>
+
+  <div class="cards">
+    <a class="card" href="ay-krater.html">
+      <span class="tag">Ana demo</span>
+      <h2>Ay &amp; Mars Krater Ekosistemi</h2>
+      <small>Prosedürel krater arazisi, ECLSS yaşam desteği hesabı, FPS keşif modu ve bilimsel üs.</small>
+    </a>
+    <a class="card" href="mars.html">
+      <span class="tag">FPS</span>
+      <h2>Mars Kolonisi</h2>
+      <small>Jezero Krateri'nde üs kurma, astronot atama, atölye, tarım ve görev planı.</small>
+    </a>
+    <a class="card" href="jezero.html">
+      <span class="tag">Arazi</span>
+      <h2>Jezero Ekosistem</h2>
+      <small>Gerçek HiRISE yükseklik verisiyle Mars arazisi, NASA modelleri ve ölçekli yerleşim.</small>
+    </a>
+  </div>
+
+  <footer>
+    Tek dosya (çevrimdışı) sürümler deponun kökünde: <code>AY-KRATER-EKOSISTEM.html</code>,
+    <code>MARS-KOLONI-FPS.html</code>, <code>MARS-JEZERO-*</code>.
+    · Çalıştırma: <code>npm install</code> + <code>npm run dev</code>
+  </footer>
+</main>
+</body>
+</html>

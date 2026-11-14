@@ -13,6 +13,21 @@ Kullanıcının BBC News referans fotoğrafındaki gibi gerçekçi, yükseltilmi
   - 🔬 **NASA Yaşam Desteği (ECLSS):** Arcade / oyun mekaniği (coin, XP, seviye atlama) tamamen kaldırılmıştır. 3 kişilik mürettebat için saf bilimsel kütle/enerji dengesi (su, oksijen, kalori) ve kapalı döngü simülasyonu sunar.
   - 🪐 **Ortam Değiştirici:** Tek tıkla 🌕 Ay (Referans Görsel) ile 🪐 Mars (Jezero Krateri) arasında geçiş.
 
+### 💻 Düzenlenebilir kaynak proje
+
+Tüm demoların okunabilir kaynak kodu [`kaynak/`](./kaynak) klasöründedir (Vite + Three.js).
+
+```bash
+cd kaynak
+npm install
+npm run dev
+```
+
+- Menü: `http://localhost:5173`
+- Sayfalar: `ay-krater.html` (Ay/Mars krater), `mars.html` (koloni FPS), `jezero.html` (Jezero arazi)
+- Kurulum ve dosya yapısı: [kaynak/README.md](./kaynak/README.md)
+- Tek dosya çevrimdışı HTML sürümleri depo kökündedir.
+
 ---
 
 ## Orijinal Görev Tanımı (Görev 2)

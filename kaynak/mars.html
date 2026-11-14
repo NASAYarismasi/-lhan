@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mars’a İlk Koloni</title>
+<style>
+:root{color-scheme:dark;--bg:#141416;--panel:#1f1d20;--line:#4b3b3c;--ink:#f8efe7;--dim:#d7c4bd;--accent:#f4a97e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
+main{max-width:1420px;margin:auto;padding:25px clamp(14px,3vw,40px)}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:16px;margin-bottom:18px}
+h1{font-size:clamp(32px,5vw,54px);line-height:1;margin:0 0 9px;letter-spacing:-.045em}
+h2{font-size:19px;margin:0 0 8px}
+p{margin:5px 0}
+small,.muted,summary{color:var(--dim)}
+.score{text-align:right;color:var(--accent);font-size:18px;font-weight:700}
+.layout{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(310px,1fr);gap:16px}
+.panel{min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
+.pad{padding:15px}
+#viewport{height:clamp(340px,59vh,630px);background:#321d22;position:relative}
+#scene{width:100%;height:100%;display:block;touch-action:none}
+#fps-hud{display:none;position:absolute;inset:0;pointer-events:none}
+.fps #fps-hud{display:block}
+#reticle{position:absolute;top:50%;left:50%;width:13px;height:13px;transform:translate(-50%,-50%);border:1px solid #fff4de;border-radius:50%;box-shadow:0 0 5px #392318}
+#aim{position:absolute;top:54%;left:50%;transform:translateX(-50%);max-width:85%;text-align:center}
+#aim:not(:empty),#helmet{padding:5px 9px;background:#201715d9;border-radius:5px}
+#helmet{position:absolute;top:12px;left:12px;font-size:13px}
+.workshop{margin-top:16px}
+.workshop h3{font-size:15px;margin:0 0 8px}
+.workshop-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.workshop-actions{display:flex;flex-wrap:wrap;gap:6px}
+.workshop-actions button{text-align:left}
+.workshop-actions small{display:block;font-size:12px}
+.manifest{margin-bottom:16px}
+.manifest summary{cursor:pointer;font-weight:700;color:var(--text,#f6ede4)}
+.manifest-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px 15px;margin-top:10px}
+.manifest-form input[type=number]{width:4.7em}
+.manifest-kit{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0}
+#system-status{color:var(--dim)}
+@media(max-width:700px){.workshop-grid{grid-template-columns:1fr}}
+.mode-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.mode-row label{margin:0}
+.file-row{margin-top:8px}
+.file-row input{max-width:100%}
+.group+.group{border-top:1px solid var(--line);margin-top:14px;padding-top:14px}
+.buttons{display:flex;gap:7px;flex-wrap:wrap}
+button,select{font:inherit;color:var(--ink);background:#30282b;border:1px solid #705950;border-radius:7px;padding:7px 10px}
+button{cursor:pointer}
+button:disabled{opacity:.52;cursor:default}
+button[aria-pressed=true],.primary{background:var(--accent);color:#291910;border-color:var(--accent);font-weight:650}
+button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #ffe1ae;outline-offset:2px}
+label:not(.check){display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0}
+.check{display:flex;align-items:center;gap:5px;margin-bottom:10px}
+#message{min-height:2em;color:var(--accent)}
+.table{overflow:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+th[scope=col]{white-space:nowrap}
+footer a{color:#ffc5a6}
+footer{padding:15px 0}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.score{text-align:left}}
+</style>
+<main>
+ <header><div><h1>Mars’a İlk Koloni</h1><p class="muted">Jezero Krateri · Üç astronot · 10 sol</p></div>
+ <div class="score"><span id="sol"></span><br><small id="weather"></small></div></header>
+ <details class="panel pad manifest" open>
+  <summary>Dünya’dan çıkış · Erzak ve donanım planı</summary>
+  <p class="muted">Üç kişilik ekip için Mars yüzeyine inecek yükü seç. Transfer aracının erzağı aşağıda ayrıca hesaplanır.</p>
+  <form id="cargo-form">
+   <div class="manifest-form">
+    <label>Paketli öğün (sol) <input name="mealDays" type="number" min="2" max="20" required></label>
+    <label>İçme suyu (sol) <input name="waterDays" type="number" min="2" max="20" required></label>
+    <label>Yedek oksijen (sol) <input name="oxygenDays" type="number" min="2" max="20" required></label>
+    <label>Yedek parça <input name="spareParts" type="number" min="0" max="6" required></label>
+    <label>Paket türü <select name="driedMealShare"><option value="0">Hazır öğün</option><option value="0.5">Karma</option><option value="1">Liyofilize</option></select></label>
+   </div>
+   <div id="cargo-kit" class="manifest-kit"></div>
+   <p id="cargo-total" role="status"></p>
+   <p id="transit-plan" class="muted"></p>
+   <details><summary>Yük listesini göster</summary><ul id="cargo-list"></ul></details>
+   <p><button class="primary" id="cargo-launch" type="submit">Yükü onayla ve Mars operasyonunu başlat</button></p>
+   <small>Liyofilize öğünler yükü hafifletir, hazırlamak için içme suyu gerekir. Kütle sınırı, cihaz ağırlıkları ve verimler senaryoya aittir. Seyahat hesabı örnek boyutlandırmadır.</small>
+  </form>
+ </details>
+ <div class="layout">
+  <section class="panel" aria-label="Koloni sahnesi">
+   <div id="viewport">
+    <canvas id="scene" tabindex="0" aria-label="Mars üssünün üç boyutlu görünümü"></canvas>
+    <div id="fps-hud"><div id="helmet"></div><div id="reticle" aria-hidden="true"></div><div id="aim"></div></div>
+   </div>
+   <div class="pad">
+    <div class="mode-row">
+     <button id="view-mode" class="primary" type="button">Astronotun gözünden gez</button>
+     <button id="wrist" type="button" aria-pressed="false">Bilek ekranı · Alt</button>
+     <label>Astronot <select id="player" aria-label="Bakış açısı için astronot"></select></label>
+    </div>
+    <p id="message" role="status">Envanterden modül seç ve uygun yüzeye yerleştir.</p>
+    <p><small id="surface-source">Jezero · HiRISE yükseklik ağı ve hizalı yörünge görüntüsü · yaklaşık 1 m örnek aralığı</small></p>
+    <small id="view-help">Modülü seç ve zeminde veya çatıda istediğin noktaya tıkla · Sürükleyerek döndür</small>
+    <details class="file-row"><summary>Ekip karakteri yükle</summary>
+     <label>Seçili astronot için GLB <input id="character-file" type="file" accept=".glb,model/gltf-binary"></label>
+     <small id="character-status" role="status">Varsayılan astronotlar kullanımda.</small>
+    </details>
+    <p><small id="nasa-status" role="status">NASA modelleri yükleniyor…</small></p>
+    <p><button id="rover" type="button">NASA Perseverance modelini göster</button></p><small id="rover-status" role="status"></small>
+   </div>
+  </section>
+  <section class="panel pad" aria-label="Koloni yönetimi">
+   <div class="group"><h2>İniş verisi</h2><input id="landing-file" type="file" accept=".json,application/json" aria-label="Emre’nin iniş JSON dosyasını yükle"><p id="landing-status" role="status">Örnek iniş · Jezero</p></div>
+   <div class="group"><h2>Envanter</h2><div id="inventory" class="buttons"></div><p class="muted" id="selected"></p><p id="buildings"></p></div>
+   <div class="group"><h2>Mürettebat</h2><div id="crew"></div>
+   <small>İnşaat: kişi başına 2 modül. Üretim: su, oksijen ve sera. Bakım: fırtınada yedek parça kullanır. Görevler her sol başında yeniden atanır.</small></div>
+   <div class="group"><h2>Stok ve enerji</h2><p id="resources"></p><p id="energy"></p><p id="system-status"></p></div>
+   <div class="group">
+    <label class="check"><input type="checkbox" id="priority" checked> Yaşam desteğine öncelik ver</label>
+    <div class="buttons"><button class="primary" id="advance">Bir sol ilerlet</button><button id="reset">Yeniden başla</button></div>
+   </div>
+  </section>
+ </div>
+ <section class="panel pad workshop" aria-label="Tarım ve üretim">
+  <h2>Atölye ve tarım</h2>
+  <details><summary>Tarımın ve arazinin bilimsel dayanağı</summary>
+   <p>Patates tohumluk yumrudan yetişir. Kapalı kabinde köklere arıtılmış su ve dengeli besin çözeltisi verilir. Işık ve iklim kontrolü sera çalışırken sağlanır.</p>
+   <p>Ayrılmış idrar arıtılır ve nitrifikasyonla azot geri kazanılır. Oyunda bu azot arıtılmış su ve Dünya’dan getirilen mineral karışımıyla birleştirilir. İşlem verimi ve hasat süreleri oyun için basitleştirilmiştir. Sera; patates, fasulye ve elma hasadına ışık ve iklim kontrolü sağlar.</p>
+   <p>Yürüme ve yerleştirme yüzeyi Jezero’nun HiRISE yükseklik ölçümlerinden oluşturuldu. Yüzey görüntüsü aynı kesitin renklendirilmiş HiRISE ortofotosudur. Yakın plan zemin tanecikleri, taşlar ve kaynak yatakları oyun öğeleridir.</p>
+  </details>
+  <p id="workshop-stock"></p><p id="workshop-skills"></p>
+  <p id="workshop-message" role="status" class="muted">Sahnedeki maden veya buz yatağını hedefle. FPS’de E ile, üs planında tıklayarak topla.</p>
+  <div class="workshop-grid">
+   <div><h3>Tarifler</h3><div class="workshop-actions" id="recipes"></div></div>
+   <div><h3>Mahsul ve teslimat</h3><div class="workshop-actions" id="harvests"></div><div class="workshop-actions" id="trade"></div>
+    <p><small>Tarım kabinleri, sera üretimdeyken büyür. Hasat için kabine bakıp E’ye basabilir veya buradaki düğmeyi kullanabilirsin.</small></p>
+   </div>
+  </div>
+ </section>
+ <section class="panel pad" style="margin-top:16px">
+  <h2>Görev raporu</h2><p id="outcome" role="status"></p>
+  <small>Üç astronot hayatta kalmalı ve son üç solun her birinde tüm temel ihtiyaçlar karşılanmalı.</small>
+  <ul id="reasons"></ul>
+  <div class="table"><table><thead><tr><th scope="col">Sol</th><th scope="col">Hava</th><th scope="col">Üretim</th><th scope="col">Tüketim</th><th scope="col">Batarya</th><th scope="col">Temel ihtiyaçlar</th></tr></thead><tbody id="log"></tbody></table></div>
+  <p><button id="report">Sonuç JSON’unu indir</button></p>
+ </section>
+ <footer><small><a href="https://www.uahirise.org/dtm/dtm.php?ID=ESP_048842_1985">Jezero HiRISE arazisi · NASA/JPL-Caltech/UArizona</a> · <a href="https://www.nasa.gov/reference/environmental-control-and-life-support-systems-eclss/">NASA ISS yaşam desteği</a> · <a href="https://www.nasa.gov/wp-content/uploads/2023/12/ochmo-tb-022-apollo-lunar-lander.pdf">Apollo su ve yemek düzeni</a> · <a href="https://www.nasa.gov/ochmo/food-in-space/">NASA uzay yiyecekleri</a> · <a href="https://ntrs.nasa.gov/citations/20160005782">NASA tüketim varsayımları</a> · <a href="https://science.nasa.gov/3d-resources/">NASA 3B modelleri</a> · <a href="https://spinoff.nasa.gov/indoor-farming">NASA hidroponik patates</a> · <a href="https://business.esa.int/projects/vunanexus">ESA azot geri kazanımı</a></small></footer>
+</main>
+<script type="application/octet-stream" id="rover-data"></script>
+<script type="application/octet-stream" id="habitat-data"></script>
+<script type="application/octet-stream" id="insight-data"></script>
+<script type="application/octet-stream" id="ingenuity-data"></script>
+<script type="application/octet-stream" id="ortho-data"></script>
+<script type="application/octet-stream" id="face-data"></script>
+<script type="application/octet-stream" id="team-crew-data"></script>
+<script type="application/octet-stream" id="team-wrist-data"></script>
+<script type="text/plain" id="decoder">/* DECODER */</script>
+<script type="application/octet-stream" id="decoder-binary"></script>
+<script type="module" src="./src/baslat-mars.js"></script>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "mars-ay-koloni-kaynak",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mars'a İlk Koloni ve Ay Krater Ekosistemi demolarının düzenlenebilir kaynak kodu",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "onizleme": "vite preview"
+  },
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}
