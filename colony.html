@@ -1,118 +1,92 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="tr">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mars’a İlk Koloni | Jezero Kolonisi</title>
-<link rel="icon" href="data:,">
-<style>
-:root{color-scheme:dark;--bg:#141416;--panel:#1f1d20;--line:#4b3b3c;--ink:#f8efe7;--dim:#d7c4bd;--accent:#f4a97e}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
-main{max-width:1420px;margin:auto;padding:25px clamp(14px,3vw,40px)}
-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:16px;margin-bottom:18px}
-h1{font-size:clamp(32px,5vw,54px);line-height:1;margin:0 0 9px;letter-spacing:-.045em}
-h2{font-size:19px;margin:0 0 8px}
-p{margin:5px 0}
-small,.muted,summary{color:var(--dim)}
-.score{text-align:right;color:var(--accent);font-size:18px;font-weight:700}
-.layout{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(310px,1fr);gap:16px}
-.panel{min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
-.pad{padding:15px}
-#viewport{height:clamp(340px,59vh,630px);background:#321d22;position:relative}
-#scene{width:100%;height:100%;display:block;touch-action:none}
-#fps-hud{display:none;position:absolute;inset:0;pointer-events:none}
-.fps #fps-hud{display:block}
-#reticle{position:absolute;top:50%;left:50%;width:13px;height:13px;transform:translate(-50%,-50%);border:1px solid #fff4de;border-radius:50%;box-shadow:0 0 5px #392318}
-#aim{position:absolute;top:54%;left:50%;transform:translateX(-50%);max-width:85%;text-align:center}
-#aim:not(:empty),#helmet{padding:5px 9px;background:#201715d9;border-radius:5px}
-#helmet{position:absolute;top:12px;left:12px;font-size:13px}
-.workshop{margin-top:16px}
-.workshop h3{font-size:15px;margin:0 0 8px}
-.workshop-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.workshop-actions{display:flex;flex-wrap:wrap;gap:6px}
-.workshop-actions button{text-align:left}
-.workshop-actions small{display:block;font-size:12px}
-@media(max-width:700px){.workshop-grid{grid-template-columns:1fr}}
-.mode-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.mode-row label{margin:0}
-.file-row{margin-top:8px}
-.file-row input{max-width:100%}
-.group+.group{border-top:1px solid var(--line);margin-top:14px;padding-top:14px}
-.buttons{display:flex;gap:7px;flex-wrap:wrap}
-button,select{font:inherit;color:var(--ink);background:#30282b;border:1px solid #705950;border-radius:7px;padding:7px 10px}
-button{cursor:pointer}
-button:disabled{opacity:.52;cursor:default}
-button[aria-pressed=true],.primary{background:var(--accent);color:#291910;border-color:var(--accent);font-weight:650}
-button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #ffe1ae;outline-offset:2px}
-label:not(.check){display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0}
-.check{display:flex;align-items:center;gap:5px;margin-bottom:10px}
-#message{min-height:2em;color:var(--accent)}
-.table{overflow:auto;margin-top:12px}
-table{border-collapse:collapse;width:100%}
-th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
-th[scope=col]{white-space:nowrap}
-footer a{color:#ffc5a6}
-footer{padding:15px 0}
-@media(max-width:850px){.layout{grid-template-columns:1fr}.score{text-align:left}}
-.mission-bar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px;font-size:13px;color:var(--dim)}
-.mission-bar a{color:var(--accent);text-decoration:none;font-weight:650}
-#landing-source b{color:var(--ink)}
-</style>
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="theme-color" content="#040a10">
+ <title>Mars’a İlk Koloni | Jezero Kolonisi</title>
+ <link rel="icon" href="data:,">
+ <link rel="stylesheet" href="/src/style.css">
+ <link rel="stylesheet" href="/src/colony/colony.css">
+</head>
+<body class="colony-page">
 <main data-start-view="fps">
- <nav class="mission-bar" aria-label="Görev"><a href="./">← Görev kontrol</a><span id="landing-source" role="status"></span></nav>
- <header><div><h1>Mars’a İlk Koloni</h1><p class="muted">Jezero Krateri · Üç astronot · 10 sol</p></div>
- <div class="score"><span id="sol"></span><br><small id="weather"></small></div></header>
- <div class="layout">
-  <section class="panel" aria-label="Koloni sahnesi">
-   <div id="viewport">
-    <canvas id="scene" tabindex="0" aria-label="Mars üssünün üç boyutlu görünümü"></canvas>
-    <div id="fps-hud"><div id="helmet"></div><div id="reticle" aria-hidden="true"></div><div id="aim"></div></div>
-   </div>
-   <div class="pad">
-    <div class="mode-row">
-     <button id="view-mode" class="primary" type="button">Astronotun gözünden gez</button>
-     <label>Astronot <select id="player" aria-label="Bakış açısı için astronot"></select></label>
+ <section id="viewport" aria-label="Koloni sahnesi">
+  <canvas id="scene" tabindex="0" aria-label="Mars üssünün üç boyutlu görünümü"></canvas>
+  <div id="fps-hud"><div id="helmet"></div><div id="reticle" aria-hidden="true"></div><div id="aim"></div></div>
+  <div id="scene-hud"></div>
+ </section>
+ <div class="colony-ui">
+  <header class="colony-topbar">
+   <a class="colony-identity" href="./" aria-label="Uçuş görev kontrolüne dön"><span class="colony-mark" aria-hidden="true">M<span>01</span></span><span><b>MARS’A İLK KOLONİ</b><small>YÜZEY GÖREVİ / JEZERO</small></span></a>
+   <div class="colony-mission"><span class="live-dot" aria-hidden="true"></span><span>Üç astronot · Kalıcı bir başlangıç</span></div>
+   <div class="colony-clock"><strong id="sol"></strong><small id="weather"></small></div>
+  </header>
+  <div class="landing-strip"><span id="landing-source" role="status"></span></div>
+  <div class="drawer-deck">
+   <nav class="drawer-nav" aria-label="Koloni yönetim panelleri">
+    <span class="nav-caption">GÖREV SİSTEMLERİ</span>
+    <button type="button" id="resources-toggle" data-drawer="resources-drawer" aria-controls="resources-drawer" aria-expanded="false"><span>01</span> Kaynaklar</button>
+    <button type="button" id="crew-toggle" data-drawer="crew-drawer" aria-controls="crew-drawer" aria-expanded="false"><span>02</span> Mürettebat</button>
+    <button type="button" id="modules-toggle" data-drawer="modules-drawer" aria-controls="modules-drawer" aria-expanded="false"><span>03</span> Modüller</button>
+    <button type="button" id="workshop-toggle" data-drawer="workshop-drawer" aria-controls="workshop-drawer" aria-expanded="false"><span>04</span> Atölye / tarım</button>
+    <button type="button" id="report-toggle" data-drawer="report-drawer" aria-controls="report-drawer" aria-expanded="false"><span>05</span> Görev raporu</button>
+    <button type="button" id="realism-toggle" data-drawer="realism-drawer" aria-controls="realism-drawer" aria-expanded="false"><span>ℹ</span> Gerçek veriler</button>
+    <button type="button" id="view-toggle" data-drawer="view-drawer" aria-controls="view-drawer" aria-expanded="false"><span>06</span> Görünüm / yardım</button>
+   </nav>
+   <section id="resources-drawer" class="colony-drawer" aria-labelledby="resources-toggle" hidden>
+    <header class="drawer-heading"><h2>Stok ve enerji</h2><button type="button" data-close-drawer aria-label="Kaynakları kapat">×</button></header>
+    <div class="drawer-content">
+     <h3>Yaşam desteği <button type="button" class="info-button" data-realism="supplies" aria-label="Erzak birimlerinin gerçek karşılığı">ℹ</button></h3>
+     <p id="resources"></p><small class="unit-note">Erzak: kişi-sol · Yedek parça: adet</small>
+     <p class="muted">1 erzak birimi = 1 kişinin 1 sollük ihtiyacı. Üç kişi, her sol her kaynaktan 3 birim tüketir.</p>
+     <div class="group"><h3>Güç sistemi <button type="button" class="info-button" data-realism="solar" aria-label="Mars’ta güneş enerjisi hakkında">ℹ</button></h3><p id="energy"></p><small>Enerji ve batarya sayıları oyun birimidir; watt veya kWh değildir.</small></div>
+     <div class="group"><label class="check"><input type="checkbox" id="priority" checked> Yaşam desteğine öncelik ver</label><button class="primary" id="advance" type="button">Bir sol ilerlet</button><p class="muted">Önce modülleri yerleştir ve ekip görevlerini ata. Bu düğme kaynak hesabını bir sol ilerletir.</p></div>
     </div>
-    <p id="message" role="status">Envanterden modül seç ve uygun yüzeye yerleştir.</p>
-    <small id="view-help">Modülü seç ve zeminde veya çatıda istediğin noktaya tıkla · Sürükleyerek döndür</small>
-    <details class="file-row"><summary>Ekip karakteri yükle</summary>
-     <label>Seçili astronot için GLB <input id="character-file" type="file" accept=".glb,model/gltf-binary"></label>
-     <small id="character-status" role="status">Varsayılan astronotlar kullanımda.</small>
-    </details>
-    <p><small id="nasa-status" role="status">NASA modelleri yükleniyor…</small></p>
-    <p><button id="rover" type="button">NASA Perseverance modelini göster</button></p><small id="rover-status" role="status"></small>
-   </div>
-  </section>
-  <section class="panel pad" aria-label="Koloni yönetimi">
-   <div class="group"><h2>Envanter</h2><div id="inventory" class="buttons"></div><p class="muted" id="selected"></p><p id="buildings"></p></div>
-   <div class="group"><h2>Mürettebat</h2><div id="crew"></div>
-   <small>İnşaat: kişi başına 2 modül. Üretim: su, oksijen ve sera. Bakım: fırtınada yedek parça kullanır. Görevler her sol başında yeniden atanır.</small></div>
-   <div class="group"><h2>Stok ve enerji</h2><p id="resources"></p><p id="energy"></p></div>
-   <div class="group">
-    <label class="check"><input type="checkbox" id="priority" checked> Yaşam desteğine öncelik ver</label>
-    <div class="buttons"><button class="primary" id="advance">Bir sol ilerlet</button><button id="reset">Yeniden başla</button></div>
-   </div>
-  </section>
- </div>
- <section class="panel pad workshop" aria-label="Tarım ve üretim">
-  <h2>Atölye ve tarım</h2>
-  <p id="workshop-stock"></p><p id="workshop-skills"></p>
-  <p id="workshop-message" role="status" class="muted">Sahnedeki maden veya buz yatağını hedefle. FPS’de E ile, üs planında tıklayarak topla.</p>
-  <div class="workshop-grid">
-   <div><h3>Tarifler</h3><div class="workshop-actions" id="recipes"></div></div>
-   <div><h3>Mahsul ve teslimat</h3><div class="workshop-actions" id="harvests"></div><div class="workshop-actions" id="trade"></div>
-    <p><small>Tarım kabinleri, sera üretimdeyken büyür. Hasat için kabine bakıp E’ye basabilir veya buradaki düğmeyi kullanabilirsin.</small></p>
-   </div>
+   </section>
+   <section id="crew-drawer" class="colony-drawer" aria-labelledby="crew-toggle" hidden>
+    <header class="drawer-heading"><h2>Mürettebat</h2><button type="button" data-close-drawer aria-label="Mürettebatı kapat">×</button></header>
+    <div class="drawer-content"><div id="crew"></div><p class="muted">İnşaat: kişi başına 2 modül. Üretim: su, oksijen ve sera. Bakım: fırtınada yedek parça kullanır. Görevler her sol başında yeniden atanır.</p><p class="unit-note">Görev kapasiteleri ve sağlık, eğitsel oyun modelidir.</p></div>
+   </section>
+   <section id="modules-drawer" class="colony-drawer" aria-labelledby="modules-toggle" hidden>
+    <header class="drawer-heading"><h2>Modül envanteri</h2><button type="button" data-close-drawer aria-label="Modülleri kapat">×</button></header>
+    <div class="drawer-content"><div id="inventory" class="buttons"></div><p class="muted" id="selected"></p><p id="buildings"></p><p class="muted">Modül seç, paneli kapat ve uygun yüzeye yerleştir. Astronot görünümünde E; üs planında tıkla.</p><p class="unit-note">Oksijen ünitesi, insanlı üs ölçeğinde bir oyun konseptidir. <button type="button" class="info-button" data-realism="moxie" aria-label="Gerçek MOXIE üretim kapasitesi">ℹ</button></p></div>
+   </section>
+   <section id="workshop-drawer" class="colony-drawer" aria-labelledby="workshop-toggle" hidden>
+    <header class="drawer-heading"><h2>Atölye ve tarım</h2><button type="button" data-close-drawer aria-label="Atölyeyi kapat">×</button></header>
+    <div class="drawer-content"><p id="workshop-stock"></p><p id="workshop-skills"></p><p id="workshop-message" role="status" class="muted">Sahnedeki maden veya buz yatağını hedefle. FPS’de E ile, üs planında tıklayarak topla.</p>
+     <div class="group"><h3>Tarifler</h3><div class="workshop-actions" id="recipes"></div></div>
+     <div class="group"><h3>Mahsul ve teslimat</h3><div class="workshop-actions" id="harvests"></div><div class="workshop-actions" id="trade"></div><p><small>Tarım kabinleri, sera üretimdeyken büyür. Hasat için kabine bakıp E’ye basabilir veya buradaki düğmeyi kullanabilirsin.</small></p></div>
+     <p class="unit-note">Büyüme süreleri, tarifler, krediler ve kaynak verimleri oyun modelidir.</p>
+    </div>
+   </section>
+   <section id="report-drawer" class="colony-drawer" aria-labelledby="report-toggle" hidden>
+    <header class="drawer-heading"><h2>Görev raporu</h2><button type="button" data-close-drawer aria-label="Raporu kapat">×</button></header>
+    <div class="drawer-content"><p id="outcome" role="status"></p><small>Üç astronot hayatta kalmalı ve son üç solun her birinde tüm temel ihtiyaçlar karşılanmalı.</small><ul id="reasons"></ul>
+     <div class="table" tabindex="0" role="region" aria-label="Sol günlüğü, yatay kaydırılabilir"><table><thead><tr><th scope="col">Sol</th><th scope="col">Hava</th><th scope="col">Üretim</th><th scope="col">Tüketim</th><th scope="col">Batarya</th><th scope="col">Temel ihtiyaçlar</th></tr></thead><tbody id="log"></tbody></table></div>
+     <div class="buttons"><button id="report" type="button">Sonuç JSON’unu indir</button><button id="reset" type="button">Yeniden başla</button></div>
+    </div>
+   </section>
+   <section id="realism-drawer" class="colony-drawer" aria-labelledby="realism-toggle" hidden>
+    <header class="drawer-heading"><h2>ℹ Gerçek veriler</h2><button type="button" data-close-drawer aria-label="Gerçek verileri kapat">×</button></header>
+    <div class="drawer-content"><p class="muted">Gerçek ölçümler, yaklaşık referanslar ve oyun kabulleri. Bu notlar koloni kurallarını değiştirmez.</p><div id="realism-notes"></div></div>
+   </section>
+   <section id="view-drawer" class="colony-drawer" aria-labelledby="view-toggle" hidden>
+    <header class="drawer-heading"><h2>Görünüm ve kontroller</h2><button type="button" data-close-drawer aria-label="Görünümü kapat">×</button></header>
+    <div class="drawer-content">
+     <div class="mode-row"><button id="view-mode" class="primary" type="button">Astronotun gözünden gez</button><label>Astronot <select id="player" aria-label="Bakış açısı için astronot"></select></label></div>
+     <p id="view-help">Modülü seç ve zeminde veya çatıda istediğin noktaya tıkla · Sürükleyerek döndür</p>
+     <p class="muted">Sahneye tıkla: fareyi yakala · WASD: yürü · Oklar / fare: bak · E: etkileşim · R: yaşam modülünün çatısına eriş / geri dön · Esc: paneli kapat veya üs planına dön.</p>
+     <p class="muted">Alt / Q: kol terminali · L: kafa lambası · [ / ]: yüzey zaman hızı. Kaynak hesabı için “Bir sol ilerlet” kullanılır.</p>
+     <details class="file-row"><summary>Ekip karakteri yükle</summary><label>Seçili astronot için GLB <input id="character-file" type="file" accept=".glb,model/gltf-binary"></label><small id="character-status" role="status">Varsayılan astronotlar kullanımda.</small></details>
+     <p><small id="nasa-status" role="status">NASA modelleri yükleniyor…</small></p><p><button id="rover" type="button">NASA Perseverance modelini göster</button></p><small id="rover-status" role="status"></small>
+     <footer class="group"><h3>Veri ve model kaynakları</h3><a href="https://pds-geosciences.wustl.edu/missions/mgs/megdr.html">NASA MGS/MOLA arazisi</a> · <a href="https://science.nasa.gov/3d-resources/habitat-demonstration-unit/">HDU · NASA/LaRC</a> · <a href="https://science.nasa.gov/3d-resources/insight-cruise-lander/">InSight · NASA/Brian E. Kumanchik</a> · <a href="https://science.nasa.gov/3d-resources/mars-2020-perseverance-rover/">Perseverance · NASA/JPL</a> · <a href="https://www.nasa.gov/science-research/nasa-plant-researchers-explore-question-of-deep-space-food-crops/">NASA bitki araştırması</a><p>NASA Space Apps 2026 · Sivas</p></footer>
+    </div>
+   </section>
   </div>
- </section>
- <section class="panel pad" style="margin-top:16px">
-  <h2>Görev raporu</h2><p id="outcome" role="status"></p>
-  <small>Üç astronot hayatta kalmalı ve son üç solun her birinde tüm temel ihtiyaçlar karşılanmalı.</small>
-  <ul id="reasons"></ul>
-  <div class="table"><table><thead><tr><th scope="col">Sol</th><th scope="col">Hava</th><th scope="col">Üretim</th><th scope="col">Tüketim</th><th scope="col">Batarya</th><th scope="col">Temel ihtiyaçlar</th></tr></thead><tbody id="log"></tbody></table></div>
-  <p><button id="report">Sonuç JSON’unu indir</button></p>
- </section>
- <footer><small><a href="https://pds-geosciences.wustl.edu/missions/mgs/megdr.html">NASA MGS/MOLA arazisi</a> · <a href="https://science.nasa.gov/3d-resources/habitat-demonstration-unit/">HDU · NASA/LaRC</a> · <a href="https://science.nasa.gov/3d-resources/insight-cruise-lander/">InSight · NASA/Brian E. Kumanchik</a> · <a href="https://science.nasa.gov/3d-resources/mars-2020-perseverance-rover/">Perseverance · NASA/JPL</a> · <a href="https://www.nasa.gov/science-research/nasa-plant-researchers-explore-question-of-deep-space-food-crops/">Marslı ve NASA’nın patates araştırması</a> · Atık arıtımı, büyüme süreleri ve kaynak miktarları oyun modeli.</small></footer>
+  <aside class="surface-message" aria-label="Sahne bildirimi"><span>YÜZEY OPERASYONU</span><p id="message" role="status">Envanterden modül seç ve uygun yüzeye yerleştir.</p><small>Sahneye tıkla · WASD yürü · E etkileşim · Esc yönetim</small></aside>
+ </div>
 </main>
 <script type="module" src="/src/colony/main.js"></script>
+</body>
 </html>
