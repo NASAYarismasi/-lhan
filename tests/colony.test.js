@@ -4,7 +4,7 @@ import { buildLandingPayload, kgToPersonSols, SOL, LANDER_SURFACE_SOLS } from '.
 import { CREW_RATES } from '../src/data/sls.js';
 import { DAY } from '../src/sim/constants.js';
 import { saveLandingPayload, readLandingPayload, clearLandingPayload, isLandingPayload } from '../src/colony/handoff.js';
-import { createColony, exampleLanding, placeModule, placementError, assignAstronaut, advanceSol, colonyReport, missionLength } from '../src/colony/mars-koloni.mjs';
+import { createColony, createColonyFromFlight, exampleLanding, placeModule, placementError, assignAstronaut, advanceSol, colonyReport, missionLength } from '../src/colony/mars-koloni.mjs';
 
 const memory = () => { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; };
 
@@ -15,14 +15,15 @@ describe('flight → colony units', () => {
   });
   it('caps surface stock at the lander allotment but passes real shortages through', () => {
     const m = createMission(), full = buildLandingPayload(m.state);
-    for (const k of ['food', 'water', 'oxygen']) expect(full.supplies[k]).toBe(LANDER_SURFACE_SOLS * 3);
+    for (const k of ['food', 'water', 'oxygen']) expect(full.supplies[k]).toBe(LANDER_SURFACE_SOLS); // crew-sols
     m.state.supplies.oxygen = CREW_RATES.oxygen * 2 * SOL / DAY; // only two person-sols of O2 left
-    expect(buildLandingPayload(m.state).supplies.oxygen).toBeCloseTo(2, 10);
+    expect(buildLandingPayload(m.state).supplies.oxygen).toBeCloseTo(2 / 3, 10); // 2 person-sols = 2/3 crew-sol
     m.state.supplies.water = -5;
     expect(buildLandingPayload(m.state).supplies.water).toBe(0);
   });
   it('flight payload is accepted by İhan\'s createColony', () => {
-    const colony = createColony(buildLandingPayload(createMission().state));
+    const colony = createColonyFromFlight(buildLandingPayload(createMission().state));
+    for (const k of ['food', 'water', 'oxygen']) expect(colony.supplies[k]).toBeCloseTo(12, 10); // 4 crew-sols × 3 = 12 person-sols
     expect(colony.crew).toHaveLength(3);
     expect(colony.inventory.map(i => i.type)).toEqual(exampleLanding.modules);
   });

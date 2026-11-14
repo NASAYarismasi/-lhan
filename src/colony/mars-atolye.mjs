@@ -1,6 +1,8 @@
 export const materialNames = {
-  mineral: "Maden", ice: "Buz", water: "Tarım suyu", waste: "Organik atık",
-  compost: "Kompost", seeds: "Tohum", potato: "Patates", bean: "Fasulye", apple: "Elma",
+  mineral: "Maden", ice: "Buz", water: "Arıtılmış su", waste: "Ayrılmış idrar",
+  nitrate: "Geri kazanılmış azot", nutrients: "Besin çözeltisi", mineralMix: "Mineral karışımı",
+  tubers: "Tohumluk yumru", seeds: "Fasulye tohumu", saplings: "Aşılı elma fidanı",
+  potato: "Patates", bean: "Fasulye", apple: "Elma",
   credits: "Kredi",
 }
 
@@ -21,13 +23,16 @@ export const crops = {
 
 export const recipes = [
   { id: "water", name: "Buzu arıt", skill: "mining", level: 1, cost: { ice: 1 }, reward: { water: 3 } },
-  { id: "compost", name: "Atığı işle", skill: "farming", level: 1, cost: { waste: 2 }, reward: { compost: 2 } },
+  { id: "nitrate", name: "İdrarı arıt, azotu geri kazan", skill: "farming", level: 1,
+    cost: { waste: 2 }, reward: { nitrate: 2 } },
+  { id: "nutrients", name: "Besin çözeltisi hazırla", skill: "farming", level: 1,
+    cost: { nitrate: 1, water: 1, mineralMix: 1 }, reward: { nutrients: 2 } },
   { id: "potatoPod", name: "Patates kabini üret", skill: "farming", level: 1,
-    cost: { mineral: 2, credits: 4, water: 1, compost: 1, seeds: 1 } },
+    cost: { mineral: 2, credits: 4, nutrients: 1, tubers: 1 } },
   { id: "beanPod", name: "Fasulye kabini üret", skill: "farming", level: 2,
-    cost: { mineral: 2, credits: 9, water: 2, compost: 1, seeds: 1 } },
+    cost: { mineral: 2, credits: 9, nutrients: 1, seeds: 1 } },
   { id: "treePod", name: "Bodur elma kabini üret", skill: "farming", level: 3,
-    cost: { mineral: 3, credits: 16, water: 2, compost: 2, seeds: 1 } },
+    cost: { mineral: 3, credits: 16, nutrients: 2, saplings: 1 } },
   { id: "battery", name: "Ek batarya üret", skill: "mining", level: 1, cost: { mineral: 4, credits: 12 } },
   { id: "solarPanel", name: "Ek güneş paneli üret", skill: "mining", level: 2, cost: { mineral: 4, credits: 16 } },
 ]
@@ -36,7 +41,8 @@ export const levelOf = xp => xp >= 14 ? 3 : xp >= 5 ? 2 : 1
 
 export function startWorkshop() {
   return {
-    stock: { mineral: 2, ice: 1, water: 0, waste: 2, compost: 0, seeds: 4, potato: 0, bean: 0, apple: 0, credits: 6 },
+    stock: { mineral: 2, ice: 1, water: 0, waste: 2, nitrate: 0, nutrients: 0, mineralMix: 8,
+      tubers: 3, seeds: 2, saplings: 1, potato: 0, bean: 0, apple: 0, credits: 6 },
     xp: { mining: 0, farming: 0 },
     collected: {}, growing: {}, crafted: 0,
   }
@@ -75,10 +81,12 @@ export function collect(workshop, id, sol) {
 export function grow(workshop, colony) {
   const day = colony.timeline.at(-1)
   const growing = { ...workshop.growing }
-  if (day.produced.food > 0) {
+  if (day.cropPower ?? day.produced.food > 0) {
     for (const unit of colony.placed) {
       const crop = crops[unit.type]
-      if (crop && unit.active) growing[unit.id] = Math.min(crop.sols, (growing[unit.id] ?? 0) + 1)
+      if (crop && unit.active && growing[unit.id] !== null) {
+        growing[unit.id] = Math.min(crop.sols, (growing[unit.id] ?? 0) + 1)
+      }
     }
   }
   const waste = day.needs.habitat ? colony.crew.filter(person => person.health > 0).length : 0
@@ -88,16 +96,24 @@ export function grow(workshop, colony) {
 export function harvest(workshop, unit) {
   const crop = crops[unit.type]
   if (!crop || (workshop.growing[unit.id] ?? 0) < crop.sols) throw new RangeError("Ürün henüz olgunlaşmadı.")
-  if (workshop.stock.water < 1 || workshop.stock.compost < 1) {
-    throw new RangeError("Hasat ve yeniden ekim için 1 tarım suyu ile 1 kompost hazırla.")
-  }
   return {
     ...workshop,
-    growing: { ...workshop.growing, [unit.id]: 0 },
-    stock: { ...workshop.stock, [crop.yield]: workshop.stock[crop.yield] + crop.amount,
-      water: workshop.stock.water - 1, compost: workshop.stock.compost - 1 },
+    growing: { ...workshop.growing, [unit.id]: null },
+    stock: { ...workshop.stock, [crop.yield]: workshop.stock[crop.yield] + crop.amount },
     xp: { ...workshop.xp, farming: workshop.xp.farming + crop.xp },
   }
+}
+
+export function replant(workshop, unit) {
+  if (workshop.growing[unit.id] !== null) throw new RangeError("Önce hasadı tamamla.")
+  const plant = { potatoPod: "tubers", beanPod: "seeds" }[unit.type]
+  if (workshop.stock.nutrients < 1 || (plant && workshop.stock[plant] < 1)) {
+    throw new RangeError("Yeni dönem için 1 besin çözeltisi" +
+      (plant ? " ve 1 " + materialNames[plant].toLowerCase() + " hazırla." : " hazırla."))
+  }
+  const stock = { ...workshop.stock, nutrients: workshop.stock.nutrients - 1 }
+  if (plant) stock[plant] -= 1
+  return { ...workshop, stock, growing: { ...workshop.growing, [unit.id]: 0 } }
 }
 
 export function sell(workshop, id) {

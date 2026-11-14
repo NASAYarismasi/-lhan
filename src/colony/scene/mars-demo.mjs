@@ -6,7 +6,7 @@ import { moduleModel, terrainModel } from "./mars-models.mjs"
 import { addSurface, createFirstPerson, placeholderAstronaut } from "./mars-fps.mjs"
 import { materialNames, nodes, crops, recipes, levelOf, startWorkshop, recipeError,
   craft, collect, grow, harvest, sell } from "../mars-atolye.mjs"
-import { modules, roles, exampleLanding, missionLength, createColony,
+import { modules, roles, exampleLanding, missionLength, createColony, createColonyFromFlight,
   footprints, roofSize, siteRadius, worldPlacement,
   placementError, placeModule, assignAstronaut, advanceSol, colonyReport } from "../mars-koloni.mjs"
 import { readLandingPayload } from "../handoff.js"
@@ -17,7 +17,9 @@ const viewport = byId("viewport")
 const canvas = byId("scene")
 // Integration (Emre): the colony starts from the flight's real landing payload when one exists.
 const landing = readLandingPayload(exampleLanding)
-let state = createColony(landing)
+// Flight payload = crew-sols → person-sols via İhan's createColonyFromFlight.
+const startColony = () => landing.source === "flight" ? createColonyFromFlight(landing) : createColony(landing)
+let state = startColony()
 let workshop = startWorkshop()
 let selected = state.inventory[0]?.id
 let playerId = state.crew[0].id
@@ -714,7 +716,7 @@ byId("advance").onclick = () => {
   }
 }
 byId("reset").onclick = () => {
-  state = createColony(landing)
+  state = startColony()
   workshop = startWorkshop()
   byId("workshop-message").textContent = "Buz ve maden yataklarını keşfet."
   selected = state.inventory[0]?.id

@@ -1,11 +1,14 @@
-// All resource values are educational game units.
+import { rates } from "./mars-gorev-plani.mjs"
+
+// Colony resources are person-sol equivalents. Equipment values model game behavior.
 export const modules = {
   habitat: { name: "Yaşam modülü", detail: "Yaşam alanı · 2 enerji" },
   solarPanel: { name: "Güneş paneli", detail: "Normalde 12, fırtınada 4 enerji" },
   battery: { name: "Batarya", detail: "26 enerjiye kadar depolar" },
-  oxygenUnit: { name: "Oksijen ünitesi", detail: "2 enerji → 3 oksijen" },
-  waterRecycler: { name: "Su geri dönüşümü", detail: "2 enerji → 3 su" },
-  greenhouse: { name: "Sera", detail: "2 enerji → 3 yiyecek" },
+  oxygenUnit: { name: "Oksijen ünitesi", detail: "Görev planında su elektroliziyle oksijen üretir." },
+  airScrubber: { name: "CO₂ tutucu", detail: "Kabin havasından karbondioksiti ayırır." },
+  waterRecycler: { name: "Su geri dönüşümü", detail: "Görev planında kullanılmış suyu geri kazanır." },
+  greenhouse: { name: "Sera", detail: "Görev planında tarım kabinlerinin ışık ve iklimini sağlar." },
   potatoPod: { name: "Patates kabini", detail: "Kapalı tarım · 2 üretim solu" },
   beanPod: { name: "Fasulye kabini", detail: "Kapalı tarım · 2 üretim solu" },
   treePod: { name: "Bodur elma kabini", detail: "Kapalı tarım · 3 üretim solu" },
@@ -26,6 +29,7 @@ export const footprints = {
   solarPanel: { x: 1.1, z: 1.1 },
   battery: { x: 1.65, z: 1.55 },
   oxygenUnit: { x: 1.65, z: 1.55 },
+  airScrubber: { x: 1.65, z: 1.55 },
   waterRecycler: { x: 1.65, z: 1.55 },
   greenhouse: { x: 1.65, z: 1.55 },
   potatoPod: { x: .92, z: .78 },
@@ -34,7 +38,7 @@ export const footprints = {
 }
 export const roofSize = { x: 1.7, z: 1.7 }
 const resources = ["water", "oxygen", "food"]
-const labels = { water: "Su", oxygen: "Oksijen", food: "Yiyecek" }
+const labels = { water: "Su", oxygen: "Oksijen", food: "Yiyecek", cleanAir: "CO₂ giderimi" }
 const producer = { water: "waterRecycler", oxygen: "oxygenUnit", food: "greenhouse" }
 const blockedCells = new Set(["0:0", "1:0", "5:1", "0:4", "4:5", "5:5"])
 
@@ -61,6 +65,13 @@ export function createColony(landing) {
     crew: landing.crew.map(person => ({ ...person, role: null })),
     inventory, placed: [], timeline: [],
   }
+}
+
+// Emre's flight payload uses crew-days. Colony production and consumption use person-days.
+export function createColonyFromFlight(landing) {
+  const state = createColony(landing)
+  for (const key of resources) state.supplies[key] *= state.crew.length
+  return state
 }
 
 export function worldPlacement(item) {
@@ -174,7 +185,31 @@ export function advanceSol(state, { prioritizeLifeSupport = true } = {}) {
   let maintenanceBoost = prioritizeLifeSupport ? 0 : maintenance()
   const shelter = Boolean(active("habitat") && power(2))
   const produced = { water: 0, oxygen: 0, food: 0 }
-  if (workers("production")) {
+  const operations = state.operations
+  const needs = { habitat: shelter }
+  let cropPower = false
+  let wastewater = state.wastewater ?? 0
+  const systems = []
+  if (operations) {
+    needs.cleanAir = Boolean(shelter && active("airScrubber") && power(1))
+    if (needs.cleanAir) systems.push("CO₂ tutucu çalıştı")
+    if (shelter && active("waterRecycler") && wastewater > 0 && power(2)) {
+      produced.water = Math.min(wastewater, 5) * .85
+      wastewater -= produced.water / .85
+      supplies.water += produced.water
+      systems.push("Atık sudan su geri kazanıldı")
+    }
+    const waterPerOxygen = (9 / 8) * rates.oxygen / rates.water
+    const demandWater = living.length * (1 + .16 * operations.driedMealShare)
+    if (shelter && active("oxygenUnit") && supplies.water >= demandWater + living.length * waterPerOxygen && power(3)) {
+      produced.oxygen = living.length
+      supplies.water -= produced.oxygen * waterPerOxygen
+      supplies.oxygen += produced.oxygen
+      systems.push("Su elektrolizi oksijen sağladı")
+    }
+    cropPower = Boolean(shelter && workers("production") && active("greenhouse") && power(2))
+    if (cropPower) systems.push("Sera ışığı ve iklim kontrolü açık")
+  } else if (workers("production")) {
     for (const key of resources) {
       if (active(producer[key]) && power(2)) {
         produced[key] = 3
@@ -184,10 +219,13 @@ export function advanceSol(state, { prioritizeLifeSupport = true } = {}) {
   }
   if (prioritizeLifeSupport) maintenanceBoost = maintenance()
 
-  const needs = { habitat: shelter }
+  cropPower ||= !operations && produced.food > 0
   for (const key of resources) {
-    needs[key] = supplies[key] >= living.length
-    supplies[key] = Math.max(0, supplies[key] - living.length)
+    const demand = living.length * (operations && key === "water" ? 1 + .16 * operations.driedMealShare : 1)
+    const consumed = Math.min(supplies[key], demand)
+    needs[key] = supplies[key] + 1e-9 >= demand
+    supplies[key] = Math.max(0, supplies[key] - demand)
+    if (operations && key === "water" && shelter) wastewater += consumed
   }
   const missing = Object.entries(needs).filter(([, met]) => !met).map(([id]) => id)
   const crew = state.crew.map(person => ({
@@ -196,10 +234,10 @@ export function advanceSol(state, { prioritizeLifeSupport = true } = {}) {
     role: null,
   }))
   const battery = Math.min(capacity, available)
-  const day = { sol, storm, generation: generation + maintenanceBoost, used, battery, capacity,
+  const day = { sol, storm, generation: generation + maintenanceBoost, used, battery, capacity, cropPower, systems,
     needs, produced, missing, supplies: { ...supplies } }
   return {
-    ...state, sol, crew, placed, supplies, battery, startupEnergy: 0,
+    ...state, sol, crew, placed, supplies, battery, startupEnergy: 0, wastewater,
     timeline: [...state.timeline, day],
   }
 }

@@ -6,8 +6,7 @@ export const SOL = 24.6597 * 3600;
 
 // GAME ASSUMPTION (architecture after NASA DRA 5.0, https://ntrs.nasa.gov/citations/20090012109):
 // consumables for the return trip stay aboard the transit habitat in Mars orbit; the crew lander
-// carries only a limited surface stock. Here: 4 sols per crew member, matching the colony's
-// example landing (12 units for 3 crew).
+// carries only a limited surface stock. Here: 4 sols for the whole crew.
 export const LANDER_SURFACE_SOLS = 4;
 
 /**
@@ -20,10 +19,14 @@ export function kgToPersonSols(kg, ratePerPersonDay) {
   return kg / (ratePerPersonDay * SOL / DAY);
 }
 
-/** Builds the README landing JSON from mission state, in colony units. */
+/**
+ * Builds the README landing JSON from mission state. Supplies are crew-sols (sols the whole crew can
+ * live on the stock), the unit İhan's createColonyFromFlight expects; it multiplies by crew size to get
+ * the colony's person-sols (team decision 2026-11-14, MARS-ENTEGRASYON.md).
+ */
 export function buildLandingPayload(state) {
-  const count = state.crew.length, carried = LANDER_SURFACE_SOLS * count;
-  const unit = key => Math.min(carried, Math.max(0, kgToPersonSols(state.supplies[key], CREW_RATES[key])));
+  const count = Math.max(1, state.crew.length);
+  const unit = key => Math.min(LANDER_SURFACE_SOLS, Math.max(0, kgToPersonSols(state.supplies[key], CREW_RATES[key]) / count));
   return {
     crew: state.crew.map(({ id, health }) => ({ id, health })),
     supplies: { food: unit('food'), water: unit('water'), oxygen: unit('oxygen'), spareParts: state.spareParts },
