@@ -22,11 +22,11 @@
 .colony-clock { text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .colony-clock strong { display: block; font: 26px 'Barlow Condensed', sans-serif; letter-spacing: 1px; }
 .colony-clock small { font-size: 10px; }
-.landing-strip { position: absolute; top: 81px; left: 26px; right: 26px; font-size: 10px; color: var(--muted); letter-spacing: .3px; }
+.landing-strip { position: absolute; top: 81px; left: 26px; right: 26px; font-size: 10px; color: #d5e1e4; letter-spacing: .3px; text-shadow: 0 1px 4px #000; }
 .landing-strip b { color: var(--mint); font-weight: 500; }
 .drawer-deck { position: absolute; top: 119px; left: 26px; }
 .drawer-nav { width: 145px; display: grid; gap: 5px; }
-.nav-caption { font-size: 8px; color: var(--muted); letter-spacing: 1.6px; margin-bottom: 9px; }
+.nav-caption { font-size: 8px; color: #d5e1e4; letter-spacing: 1.6px; margin-bottom: 9px; text-shadow: 0 1px 4px #000; }
 .drawer-nav button { text-align: left; font-size: 12px; background: #06131dd9; border-color: #aac7d33d; }
 .drawer-nav button > span { font: 11px 'Barlow Condensed', sans-serif; margin-right: 8px; color: var(--mint); }
 .drawer-nav button[aria-expanded=true] { border-color: var(--mint); color: var(--mint); background: #10282bf2; }
@@ -72,6 +72,7 @@
 .surface-message small { font-size: 10px; }
 .surface-message #message { color: #d9e7eb; margin: 5px 0; }
 .colony-page.drawer-open .surface-message { visibility: hidden; }
+.colony-page main:has(.ares-wrist.is-raised) .surface-message { visibility: hidden; }
 .colony-page #fps-hud { display: none; position: absolute; inset: 0; pointer-events: none; z-index: 1; }
 .colony-page .fps #fps-hud { display: block; }
 .colony-page #reticle { position: absolute; top: 50%; left: 50%; width: 9px; height: 9px; transform: translate(-50%, -50%); border: 1px solid #e5edf0c9; border-radius: 50%; box-shadow: 0 0 4px #0008; }

@@ -10,16 +10,19 @@ export function createFirstPerson(canvas, camera, { onMode, onAim, interact, acc
   let active = false, walkingTime = 0, distanceSinceStep = 0, accumulator = 0, aimTime = 0
   let savedFov = camera.fov
   let jump = false, vertical = createSuitMotion()
+  let spawnYaw = 0
   const clearKeys = () => { keys.clear(); jump = false }
   function turn(dx, dy) {
     look.y -= dx * .0022
     look.x = T.MathUtils.clamp(look.x - dy * .0022, -1.47, 1.47)
     camera.quaternion.setFromEuler(look)
   }
-  function respawn(position) {
-    spawn.set(position.x, groundY(position.x, position.z + 1.2) + SUIT.eyeHeight, position.z + 1.2)
+  function respawn(position, yaw = 0) {
+    // Caller supplies an exact, collision-free ground position (no hidden offset).
+    spawn.set(position.x, groundY(position.x, position.z) + SUIT.eyeHeight, position.z)
+    spawnYaw = yaw
     vertical = createSuitMotion(); walkingTime = 0; distanceSinceStep = 0
-    if (active) { camera.position.copy(spawn); look.set(-.10, 0, 0); turn(0,0) }
+    if (active) { camera.position.copy(spawn); look.set(-.04, spawnYaw, 0); turn(0,0) }
   }
   function lookFrom(position, pitch) {
     camera.position.copy(position); look.x = pitch; vertical = createSuitMotion(); turn(0,0); camera.updateMatrixWorld()
@@ -30,11 +33,12 @@ export function createFirstPerson(canvas, camera, { onMode, onAim, interact, acc
     if (value) {
       savedFov = camera.fov
       savedPosition.copy(camera.position); savedRotation.copy(camera.quaternion)
-      camera.position.copy(spawn); look.set(-.10, 0, 0); turn(0,0)
+      camera.position.copy(spawn); look.set(-.04, spawnYaw, 0); turn(0,0)
       canvas.focus({ preventScroll: true })
     } else {
       if (document.pointerLockElement === canvas) document.exitPointerLock()
-      spawn.copy(camera.position); camera.position.copy(savedPosition); camera.quaternion.copy(savedRotation)
+      spawn.copy(camera.position); spawnYaw = look.y
+      camera.position.copy(savedPosition); camera.quaternion.copy(savedRotation)
     }
     camera.fov = value ? 66 : savedFov; camera.updateProjectionMatrix(); onMode(value)
   }
@@ -93,14 +97,14 @@ export function createFirstPerson(canvas, camera, { onMode, onAim, interact, acc
     get active() { return active },
     get telemetry() { return {x:camera.position.x,y:camera.position.y,z:camera.position.z,grounded:vertical.grounded} },
     setActive, respawn,
-    update(delta) {
+    update(delta, updateAim = true) {
       if (!active) return
       accumulator += delta
       while (accumulator + 1e-10 >= 1/60) { step(1/60); accumulator = Math.max(0, accumulator - 1/60) }
       camera.updateMatrixWorld()
       // GPU-independent aim picking is capped; E/click still raycast immediately at the current view.
       aimTime += delta
-      if (aimTime >= 1/15) { aimTime %= 1/15; onAim() }
+      if (updateAim && aimTime >= 1/15) { aimTime %= 1/15; onAim() }
     },
     dispose() { clearKeys(); abort.abort(); if (document.pointerLockElement === canvas) document.exitPointerLock() },
   }

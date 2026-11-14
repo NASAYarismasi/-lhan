@@ -63,10 +63,12 @@ describe('surface environment integration', () => {
     environment.sync(createColony(exampleLanding),'');
     environment.update(300); // 08:00 → 20:00 LMST, half a sol.
     expect(environment.telemetry.sunElevationDeg).toBeLessThan(0);
-    expect(environment.telemetry.headlamp).toBe(true); expect(lamp.visible).toBe(true);
-    key('KeyL'); expect(environment.telemetry.headlamp).toBe(false); expect(lamp.visible).toBe(false);
+    expect(environment.telemetry.headlamp).toBe(true); expect(lamp.intensity).toBe(80);
+    key('KeyL'); expect(environment.telemetry.headlamp).toBe(false); expect(lamp.intensity).toBe(0);
     key('KeyL'); expect(environment.telemetry.headlamp).toBe(true);
-    environment.setFPS(false); expect(lamp.visible).toBe(false);
+    environment.setFPS(false); expect(lamp.intensity).toBe(0);
+    // Day/night and user toggles preserve light counts and the shadow topology.
+    expect(lamp.visible).toBe(true); expect(sun.visible).toBe(true); expect(sun.castShadow).toBe(true);
     let shadows=0; scene.traverse(o=>{if(o.isLight && o.castShadow) shadows++;}); expect(shadows).toBe(1);
   });
   it('keeps reserved wrist keys available, changes warp, and removes nodes/listeners on teardown', () => {
@@ -85,6 +87,14 @@ describe('surface environment integration', () => {
   });
 });
 describe('FPS movement and terrain contracts', () => {
+  it('spawns at the exact ground position and faces the colony without an implicit forward offset', () => {
+    const fps=createFirstPerson(canvas,camera,{onMode:()=>{},onAim:()=>{},collides:()=>false,groundY:()=>-.035});
+    dispose=()=>fps.dispose();
+    fps.respawn(new T.Vector3(-16.4,0,20.7),-.65); fps.setActive(true);
+    expect(camera.position.toArray()).toEqual([-16.4,1.615,20.7]);
+    const forward=camera.getWorldDirection(new T.Vector3()); expect(forward.x).toBeGreaterThan(.5); expect(forward.z).toBeLessThan(-.7);
+    fps.update(1); expect(camera.position.y).toBeCloseTo(1.615,6);
+  });
   it('walks and runs at suit speeds, clears held keys for the wrist, and jumps under Mars gravity', () => {
     const onStep=vi.fn();
     const fps=createFirstPerson(canvas,camera,{onMode:()=>{},onAim:()=>{},interact:()=>{},accessRoof:()=>{},collides:()=>false,groundY:()=>0,onStep});

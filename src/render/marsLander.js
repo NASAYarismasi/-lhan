@@ -27,10 +27,11 @@ export function createMarsLander() {
   const windows = material(0x0a2534, .12, .65);
   windows.emissive.set(0x163a4a); windows.emissiveIntensity = .35;
   cylinder(lander, 4.5, 5.8, 4.3, graphite, [0, 5.65, 0], 16);
-  cylinder(lander, 3.05, 4.5, 2.4, thermal, [0, 9, 0], 16);
-  cylinder(lander, 3.05, 3.05, .65, foil, [0, 10.52, 0]);
-  cylinder(lander, 1.25, 1.25, .65, white, [0, 11.16, 0]);
-  cylinder(lander, .85, 1.25, .3, black, [0, 11.64, 0]);
+  // GAME ASSUMPTION: compact 9.94 m crewed lander, shared at 1:1 scale by flight and EVA.
+  cylinder(lander, 3.05, 4.5, 1.2, thermal, [0, 8.4, 0], 16);
+  cylinder(lander, 3.05, 3.05, .4, foil, [0, 9.2, 0]);
+  cylinder(lander, 1.25, 1.25, .3, white, [0, 9.55, 0]);
+  cylinder(lander, .85, 1.25, .24, black, [0, 9.82, 0]);
   cylinder(lander, 5.8, 5.8, .35, foil, [0, 3.65, 0], 48);
   cylinder(lander, 4.3, 4.8, 1.05, foil, [0, 2.95, 0]);
   for (let i = 0; i < 16; i++) {

@@ -55,7 +55,7 @@ export function addSurface(scene) {
     let x=Math.sin(a)*r,z=Math.cos(a)*r
     // Keep the primary construction floor and landing apron free of large obstacles.
     if(Math.abs(x)<12 && Math.abs(z)<16) x+=Math.sign(x||1)*14
-    if(x<-10 && x>-27 && z>5 && z<26) z+=24
+    if(x<-10 && x>-27 && z>-23 && z<1) z-=24
     // Steep size-frequency distribution: mostly centimetre clasts, very few metre boulders.
     const size=.025+random()**6*1.35
     pose.position.set(x,surface.userData.heightAt(x,z)+size*.15,z)
@@ -72,7 +72,7 @@ export function addSurface(scene) {
       const a=random()*Math.PI*2,r=(layer===slabs?30:8)+Math.sqrt(random())*(layer===slabs?105:51)
       let x=Math.sin(a)*r,z=Math.cos(a)*r
       // Keep the lander's feet and hatch route free of decorative stones.
-      if(x<-10 && x>-27 && z>5 && z<26) z+=24
+      if(x<-10 && x>-27 && z>-23 && z<1) z-=24
       const size=layer===slabs?.4+random()**2.6*1.8:.02+random()**2.6*.09
       pose.position.set(x,surface.userData.heightAt(x,z),z)
       pose.rotation.set((random()-.5)*.22,random()*Math.PI*2,(random()-.5)*.22)

@@ -68,7 +68,8 @@ export function createEnvironment(scene, camera, canvas) {
   root.add(ambient,sun,sun.target)
   // Candela, inverse-square attenuation; only the directional sun casts a shadow.
   // GAME ASSUMPTION: warm-white suit lamp, 80 cd, 42 m rendering cutoff.
-  const lamp = new T.SpotLight(0xffefd5,80,42,Math.PI/6,.55,2)
+  const lamp = new T.SpotLight(0xffefd5,0,42,Math.PI/6,.55,2)
+  lamp.name = 'Suit_headlamp'
   lamp.position.set(.18,-.10,-.06); lamp.target.position.set(0,-.12,-12)
   camera.add(lamp,lamp.target)
 
@@ -105,6 +106,7 @@ export function createEnvironment(scene, camera, canvas) {
     color:0xe4d5b0,emissive:0xffd18c,emissiveIntensity:0,roughness:.5}),128)
   markers.count=0; markers.frustumCulled=false; root.add(markers)
   const porch=new T.PointLight(0xffd7a1,0,13,2); root.add(porch)
+  let hasPorch = false
   const pose=new T.Object3D()
 
   const style=document.createElement('style')
@@ -160,7 +162,8 @@ export function createEnvironment(scene, camera, canvas) {
     sun.target.position.copy(camera.position)
     sun.intensity=(storm ? .09 : 2.8)*smooth(elevation,-.7,12)
     sun.color.set(0xffe7c6).lerp(coolSun,1-smooth(elevation,0,12))
-    sun.visible=elevation>-.7
+    // Keep the light/shadow topology fixed. Visibility changes rebuild every lit shader,
+    // which stalls software WebGL when the detailed terrain enters dusk.
     ambient.intensity=.012+daylight*(storm ? .20 : .85)
     ambient.color.set(storm?0xb99969:0xf3c9a2); ambient.groundColor.set(0x4d352a)
     haze.setRGB(.002,.003,.006).lerp(storm ? stormHaze : clearHaze,daylight)
@@ -186,10 +189,10 @@ export function createEnvironment(scene, camera, canvas) {
       moon.mesh.visible=up>0 && !storm
       moon.mesh.material.color.setScalar(.12+daylight*.45+night*.28)
     }
-    lampOn=manualLamp ?? elevation<2
-    lamp.visible=isFPS && lampOn
+    lampOn=manualLamp ?? elevation<4
+    lamp.intensity=isFPS && lampOn ? 80 : 0
     markers.material.emissiveIntensity=night*2.6
-    porch.intensity=night*18
+    porch.intensity=hasPorch ? night*18 : 0
     visor.hidden=!isFPS
     const hours=solar.lmst/3600, hh=Math.floor(hours), mm=Math.floor(hours%1*60)
     // GAME ASSUMPTION: indicative −80…−20°C diurnal air cycle; not live Jezero weather.
@@ -231,8 +234,9 @@ export function createEnvironment(scene, camera, canvas) {
       }
       markers.instanceMatrix.needsUpdate=true
       const home=modules.find(item=>item.type==='habitat' && item.active)
-      porch.visible=Boolean(home)
+      hasPorch=Boolean(home)
       if(home) porch.position.set(home.x,home.y+2,home.z+(home.halfZ??2.6)+.65)
+      updateLighting()
     },
     reset() { unixSeconds=EPOCH; manualLamp=null; warpIndex=0; lastSol=0; updateLighting(true) },
     update(dt) { realTime+=dt; unixSeconds=advanceSurfaceTime(unixSeconds,dt,warps[warpIndex]); updateLighting(); audio.update(realTime); emit() },

@@ -9,7 +9,7 @@ it('shares an asset-free landed model with ground contact at zero and the hatch 
   const lander=createMarsLander();
   expect(lander.isGroup).toBe(true);lander.updateMatrixWorld(true);
   const bounds=new THREE.Box3().setFromObject(lander);
-  expect(bounds.min.y).toBeCloseTo(0,6);expect(bounds.max.y).toBeLessThan(15);
+  expect(bounds.min.y).toBeCloseTo(0,6);expect(bounds.max.y).toBeGreaterThan(8);expect(bounds.max.y).toBeLessThan(10);
   for(let i=0;i<4;i++) {
     const pad=lander.getObjectByName(`footpad-${i}`);
     expect(new THREE.Box3().setFromObject(pad).min.y).toBeCloseTo(0,6);

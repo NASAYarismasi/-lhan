@@ -6,6 +6,7 @@ import { moduleModel, jezeroLandscape } from "./mars-models.mjs"
 import { addSurface, createFirstPerson, placeholderAstronaut } from "./mars-fps.mjs"
 import { createEnvironment } from "./environment.mjs"
 import { createFootprints } from "./surface.mjs"
+import { batchStaticModel, prepareSurfaceMaterials } from "./static-model.mjs"
 import { createMarsLander } from "../../render/marsLander.js"
 import { cargoOptions, defaultManifest, planMission, cargoLimitKg, transitDays } from "../mars-gorev-plani.mjs"
 import { createSceneColony } from "./mission-start.mjs"
@@ -28,7 +29,7 @@ let activeMissionPlan = landing.source === "flight" ? undefined : planMission(de
 const startColony = () => createSceneColony(landing, activeMissionPlan)
 let state = startColony()
 let workshop = startWorkshop()
-let selected = state.inventory[0]?.id
+let selected
 let playerId = state.crew[0].id
 let sceneView
 let lastReport = colonyReport(state)
@@ -39,7 +40,7 @@ const pick = position => {
   if (issue) { status.textContent = issue; return }
   const name = modules[state.inventory.find(item => item.id === selected).type].name
   state = placeModule(state, selected, position)
-  selected = state.inventory[0]?.id
+  selected = undefined
   update()
   const surface = position.supportId ? "Çatı" : "Zemin"
   const number = new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -51,7 +52,7 @@ function makeScene() {
   const lifecycle = new AbortController()
   const listenerOptions = { signal: lifecycle.signal }
   let disposed = false
-  const renderer = new T.WebGLRenderer({ canvas, antialias: true })
+  const renderer = new T.WebGLRenderer({ canvas, antialias: false })
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35))
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = T.PCFShadowMap
@@ -72,9 +73,10 @@ function makeScene() {
     return ground.userData.heightAt(x, z)
   }
   const tracks = createFootprints(scene, groundY)
-  const crewLander = createMarsLander()
-  crewLander.position.set(-18, groundY(-18, 14), 14)
-  crewLander.userData.radius = 6.5 // GAME ASSUMPTION: keep crew-lander footpads/ladder clear.
+  const crewLander = batchStaticModel(createMarsLander())
+  // Arrival apron north-west of the colony: the +Z hatch exits toward the pad.
+  crewLander.position.set(-18, groundY(-18, -12), -12)
+  crewLander.userData.radius = 7.5 // GAME ASSUMPTION: construction clearance around the landing legs.
   scene.add(crewLander)
   const roofGeometry = new T.BoxGeometry(roofSize.x * 2, .15, roofSize.z * 2)
   const roofMaterial = new T.MeshStandardMaterial({ color: 0x747875, metalness: .35, roughness: .68 })
@@ -90,13 +92,16 @@ function makeScene() {
   const objects = new T.Group()
   const deposits = new T.Group()
   const depositMeshes = new Map()
-  const oreMaterial = new T.MeshStandardMaterial({ color: 0xaa7959, roughness: .86 })
-  const iceMaterial = new T.MeshStandardMaterial({ color: 0x8cb0b9, roughness: .48 })
+  const oreMaterial = new T.MeshStandardMaterial({ color: 0xaa7959, roughness: .86, flatShading: true })
+  const iceMaterial = new T.MeshStandardMaterial({ color: 0x8cb0b9, roughness: .48, flatShading: true })
+  const depositGeometry = new T.DodecahedronGeometry(.64, 0)
+  depositGeometry.computeBoundingBox()
   for (const node of nodes) {
-    const rock = new T.Mesh(new T.DodecahedronGeometry(.64, 1),
+    const rock = new T.Mesh(depositGeometry,
       node.material === "ice" ? iceMaterial : oreMaterial)
-    rock.position.set(node.x, groundY(node.x, node.z) + .4, node.z)
     rock.scale.set(1.24, .57, .94)
+    // Bury the narrow lower facets so outcrops have broad contact with the regolith.
+    rock.position.set(node.x, groundY(node.x, node.z) - depositGeometry.boundingBox.min.y * rock.scale.y - .16, node.z)
     rock.rotation.y = node.x
     rock.userData.deposit = node
     rock.castShadow = true
@@ -158,10 +163,16 @@ function makeScene() {
   function collides(x, z) {
     if (roofAccess) return true
     if (Math.abs(x) > siteRadius || Math.abs(z) > siteRadius || occupied(x, z, .31)) return true
-    // The clear +Z ladder approach lies between the landing legs. A square collider would block it.
-    if (Math.hypot(x - crewLander.position.x, z - crewLander.position.z) < 3.65) return true
+    // Metre-scale hull radius 5.8 + suited shoulder clearance. Keep the camera
+    // outside the belly/engine envelope while allowing the +Z ladder approach.
+    if (Math.hypot(x - crewLander.position.x, z - crewLander.position.z) < 6.18) return true
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-      if (Math.hypot(x - crewLander.position.x - sx * 4, z - crewLander.position.z - sz * 4) < .95) return true
+      const foot = 8.5 / Math.sqrt(2)
+      if (Math.hypot(x - crewLander.position.x - sx * foot, z - crewLander.position.z - sz * foot) < 1.48) return true
+      const dx = x - crewLander.position.x, dz = z - crewLander.position.z
+      const along = (sx * dx + sz * dz) / Math.sqrt(2)
+      const across = Math.abs(sx * dx - sz * dz) / Math.sqrt(2)
+      if (along > 4.5 && along < 8.7 && across < .52) return true
     }
     for (const actor of crewModels.values()) {
       if (actor.visible && Math.hypot(x - actor.position.x, z - actor.position.z) < .63) return true
@@ -219,7 +230,7 @@ function makeScene() {
   function drawTarget(target) {
     const deposit = target?.deposit
     const crop = crops[target?.item?.type]
-    const candidate = inspect(deposit ? null : target)
+    const candidate = selected ? inspect(deposit ? null : target) : {}
     const show = Boolean(target && selected && !deposit)
     marker.visible = show
     outline.visible = show && !candidate.error
@@ -327,9 +338,10 @@ function makeScene() {
     },
   })
   // Crew arrives beside the +Z hatch ladder; avoid respawning inside the landing legs.
-  const hatchSpawn = new T.Vector3(crewLander.position.x + .7, 0, crewLander.position.z + 4.8)
+  const hatchSpawn = new T.Vector3(crewLander.position.x + 1.6, 0, crewLander.position.z + 6.7)
+  const arrivalYaw = -2.15 // Face away toward the colony; a landing leg stays at the visor edge.
   crewActor(playerId).position.set(hatchSpawn.x, groundY(hatchSpawn.x, hatchSpawn.z), hatchSpawn.z)
-  fps.respawn(hatchSpawn)
+  fps.respawn(hatchSpawn, arrivalYaw)
   canvas.addEventListener("pointermove", event => {
     if (fps.active) return
     lastPointer = event
@@ -354,18 +366,41 @@ function makeScene() {
   const taskObserver = new MutationObserver(() => environment.sync(state, status.textContent))
   taskObserver.observe(status, { childList: true, characterData: true, subtree: true })
   let previousTime, manualTime = false
-  function tick(delta) {
+  const gl = renderer.getContext()
+  let gpuFence = null, submittedAt = 0
+  const frameStats = { cpuMs: 0, gpuMs: 0, calls: 0, triangles: 0, programs: 0 }
+  function gpuReady() {
+    if (!gpuFence) return true
+    if (gl.clientWaitSync(gpuFence, 0, 0) === gl.TIMEOUT_EXPIRED) return false
+    frameStats.gpuMs = performance.now() - submittedAt
+    gl.deleteSync(gpuFence); gpuFence = null
+    return true
+  }
+  function renderFrame() {
+    // Software WebGL can submit frames much faster than it can rasterize them.
+    // One frame in flight keeps screenshots/input responsive instead of queuing
+    // minutes of terrain/shadow work behind a fast requestAnimationFrame loop.
+    if (!gpuReady()) return
+    const start = performance.now()
+    renderer.render(scene, camera)
+    frameStats.cpuMs = performance.now() - start
+    frameStats.calls = renderer.info.render.calls
+    frameStats.triangles = renderer.info.render.triangles
+    frameStats.programs = renderer.info.programs.length
+    gpuFence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
+    submittedAt = performance.now(); gl.flush()
+  }
+  function tick(delta, updateAim = true) {
     environment.update(delta)
     tracks.update(delta)
-    if (fps.active) fps.update(delta)
+    if (fps.active) fps.update(delta, updateAim)
     else controls.update()
     scene.updateMatrixWorld()
   }
   renderer.setAnimationLoop(time => {
     const delta = Math.min(.05, (time - (previousTime ?? time)) / 1000)
     previousTime = time
-    if (!manualTime) tick(delta)
-    renderer.render(scene, camera)
+    if (!manualTime) { tick(delta); renderFrame() }
   })
   // Preserve the same deterministic observation/stepping hooks as the flight scene.
   const previousTextHook = window.render_game_to_text, previousAdvanceHook = window.advanceTime
@@ -373,14 +408,20 @@ function makeScene() {
     scene: "colony", coordinates: "metres; +X east, +Y up, -Z north", state,
     storm: Boolean(state.timeline.at(-1)?.storm), activeTask: status.textContent,
     fps: fps.active, player: fps.telemetry, environment: environment.telemetry,
+    placement: { selected: selected ?? null, preview: preview.visible, marker: marker.visible },
+    rendering: frameStats,
   })
-  window.advanceTime = ms => {
+  window.advanceTime = async ms => {
     if (!Number.isFinite(ms) || ms < 0) throw new RangeError("Invalid time step")
     manualTime = true
     let remaining = ms / 1000
-    while (remaining > 1e-9) { const dt = Math.min(1/60, remaining); tick(dt); remaining -= dt }
-    renderer.render(scene, camera)
-    return Promise.resolve()
+    // Only the final view needs picking during deterministic fast-forward.
+    // Movement/ground contact still use every fixed suit step.
+    while (remaining > 1e-9) { const dt = Math.min(1/60, remaining); tick(dt, false); remaining -= dt }
+    if (fps.active) fps.update(0)
+    while (!gpuReady()) await new Promise(requestAnimationFrame)
+    renderFrame()
+    while (!gpuReady()) await new Promise(requestAnimationFrame)
   }
 
   function redrawScene() {
@@ -463,6 +504,7 @@ function makeScene() {
     scene.updateMatrixWorld(true)
     preview.clear()
     drawTarget(fps.active ? targetAt() : lastPointer ? targetAt(lastPointer) : null)
+    if (manualTime) renderFrame()
   }
 
   function foundationHeight(x, z, size) {
@@ -539,6 +581,7 @@ function makeScene() {
       if (disposed) return
       disposed = true; lifecycle.abort(); taskObserver.disconnect()
       renderer.setAnimationLoop(null)
+      if (gpuFence) gl.deleteSync(gpuFence)
       observer.disconnect(); fps.dispose(); environment.dispose(); tracks.dispose(); controls.dispose()
       window.render_game_to_text = previousTextHook; window.advanceTime = previousAdvanceHook
       const geometries = new Set(), materials = new Set(), textures = new Set()
@@ -562,12 +605,12 @@ function makeScene() {
       renderer.dispose()
     },
     toggleView() {
-      if (!fps.active) fps.respawn(crewActor(playerId).position)
+      if (!fps.active) fps.respawn(crewActor(playerId).position, arrivalYaw)
       fps.setActive(!fps.active)
     },
     selectPlayer() {
       roofAccess = undefined
-      fps.respawn(crewActor(playerId).position)
+      fps.respawn(crewActor(playerId).position, arrivalYaw)
       redrawScene()
     },
     async loadCharacter(id, bytes) {
@@ -653,7 +696,7 @@ function fitModel(model, width) {
   model.position.multiplyScalar(scale)
   model.position.add(new T.Vector3(-center.x * scale, -bounds.min.y * scale, -center.z * scale))
   model.traverse(part => { if (part.isMesh) part.castShadow = part.receiveShadow = true })
-  return group
+  return batchStaticModel(prepareSurfaceMaterials(group))
 }
 
 
@@ -788,14 +831,14 @@ function update() {
   }
   byId("weather").textContent = day?.storm ? "Toz fırtınası" : day ? "Açık gökyüzü" : "İniş tamamlandı"
   byId("inventory").replaceChildren(...state.inventory.map(item => {
-    const choice = button(modules[item.type].name, () => { selected = item.id; update() })
+    const choice = button(modules[item.type].name, () => { selected = selected === item.id ? undefined : item.id; update() })
     choice.setAttribute("aria-pressed", String(selected === item.id))
     choice.title = modules[item.type].detail
     choice.disabled = stopped
     return choice
   }))
   byId("selected").textContent = selected ? modules[state.inventory.find(item => item.id === selected).type].detail
-    : "Envanter boş."
+    : state.inventory.length ? "Yerleştirmek için bir modül seç. Seçimi kaldırmak için tekrar tıkla." : "Envanter boş."
   byId("crew").replaceChildren(...state.crew.map((person, index) => {
     const label = document.createElement("label")
     label.append("Astronot " + (index + 1) + " · %" + person.health)
@@ -854,7 +897,7 @@ function beginColony(next) {
   sceneView?.resetEnvironment()
   workshop = startWorkshop()
   byId("workshop-message").textContent = "Buz ve maden yataklarını keşfet."
-  selected = state.inventory[0]?.id
+  selected = undefined
   playerId = (state.crew.find(person => person.health > 0) ?? state.crew[0]).id
   byId("player").replaceChildren(...state.crew.map((person, index) => new Option("Astronot " + (index + 1), person.id)))
   byId("player").value = playerId
