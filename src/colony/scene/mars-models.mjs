@@ -32,6 +32,47 @@ export function terrainModel(scale = 1) {
   return mesh
 }
 
+/**
+ * Regional context from the bundled MOLA sample, extended with a crater/delta silhouette.
+ * https://pds-geosciences.wustl.edu/missions/mgs/megdr.html
+ * The sample spans 77.08–77.27 E, west of the landing site: this is regional morphology,
+ * not a registered landing-site DEM. Rim/delta positions and meso-scale detail are GAME ASSUMPTION.
+ * Jezero diameter ~45 km: https://science.nasa.gov/mars/exploration/jezero-crater/
+ */
+export function jezeroLandscape() {
+  const size = 48000, segments = 160
+  const geometry = new T.PlaneGeometry(size, size, segments, segments)
+  geometry.rotateX(-Math.PI / 2)
+  const points = geometry.attributes.position
+  const colors = []
+  const base = area.heights[12][12]
+  for (let i = 0; i < points.count; i++) {
+    const x = points.getX(i), z = points.getZ(i), r = Math.hypot(x, z)
+    const u = T.MathUtils.clamp(x / 11000 + .5, 0, 1) * (area.width - 1)
+    const v = T.MathUtils.clamp(z / 11000 + .5, 0, 1) * (area.height - 1)
+    const ix = Math.min(area.width - 2, Math.floor(u)), iz = Math.min(area.height - 2, Math.floor(v))
+    const a = T.MathUtils.lerp(area.heights[iz][ix], area.heights[iz][ix+1], u-ix)
+    const b = T.MathUtils.lerp(area.heights[iz+1][ix], area.heights[iz+1][ix+1], u-ix)
+    const mola = T.MathUtils.lerp(a, b, v-iz) - base
+    const angle = Math.atan2(x, z)
+    const ridge = Math.exp(-(((r - 19000 - 1300*Math.sin(angle*3)) / 1900)**2))
+    const rim = ridge * (650 + 140*Math.sin(angle*17) + 75*Math.cos(angle*31))
+    const deltaEdge = -1800 + 210*Math.sin(x*.0013) + 70*Math.sin(x*.004)
+    const delta = 115 * T.MathUtils.smoothstep(deltaEdge-z, 0, 320) * Math.exp(-((x/3300)**4)) * Math.exp(-(((z+3000)/4000)**4))
+    const blend = T.MathUtils.smoothstep(r, 130, 800)
+    const y = -.12 + blend * (mola*.65 + rim + delta + 2.5*Math.sin(x*.006)*Math.cos(z*.004))
+    points.setY(i, y)
+    const shade = new T.Color(0x80604a).lerp(new T.Color(0xa77b5d), .5+.25*Math.sin(x*.0008)+.15*Math.cos(z*.0011))
+    colors.push(shade.r, shade.g, shade.b)
+  }
+  geometry.setAttribute('color', new T.Float32BufferAttribute(colors, 3))
+  geometry.computeVertexNormals()
+  const landscape = new T.Mesh(geometry, new T.MeshStandardMaterial({ vertexColors: true, roughness: 1 }))
+  landscape.name = 'Jezero_regional_context'
+  landscape.receiveShadow = true
+  return landscape
+}
+
 function part(group, geometry, surface, x, y, z) {
   const item = new T.Mesh(geometry, surface)
   item.position.set(x, y, z)
