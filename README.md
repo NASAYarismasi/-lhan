@@ -1,6 +1,6 @@
 # Mars’a İlk Koloni & Mars Krater Yaşam Destek Üssü
 
-**Güncel demo.** [MARS-KOLONISI-SERA-BUTCESI.html dosyasını indir](https://github.com/NASAYarismasi/-lhan/raw/refs/heads/main/MARS-KOLONISI-SERA-BUTCESI.html) ve tarayıcıda aç. Özel depo için ekibin GitHub hesabıyla oturum aç.
+**Güncel demo.** [MARS-KOLONISI-ELEKTRIK-GOREVI.html dosyasını indir](https://github.com/NASAYarismasi/-lhan/raw/refs/heads/main/MARS-KOLONISI-ELEKTRIK-GOREVI.html) ve tarayıcıda aç. Özel depo için ekibin GitHub hesabıyla oturum aç.
 
 **Sorumlu: İlhan · Görev 2**
 
