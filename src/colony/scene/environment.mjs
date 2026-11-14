@@ -165,7 +165,9 @@ export function createEnvironment(scene, camera, canvas) {
     sun.color.set(0xffe7c6).lerp(coolSun,1-smooth(elevation,0,12))
     // Keep the light/shadow topology fixed. Visibility changes rebuild every lit shader,
     // which stalls software WebGL when the detailed terrain enters dusk.
-    ambient.intensity=.012+daylight*(storm ? .20 : .85)
+    // Real Mars night is ~starlight (.012). GAME ASSUMPTION: the overview/plan camera gets a faint
+    // 'enhanced view' floor so the base stays readable; the astronaut's own eyes (FPS) stay realistic.
+    ambient.intensity=(isFPS ? .012 : .09)+daylight*(storm ? .20 : .85)
     ambient.color.set(storm?0xb99969:0xf3c9a2); ambient.groundColor.set(0x4d352a)
     haze.setRGB(.002,.003,.006).lerp(storm ? stormHaze : clearHaze,daylight)
     scene.fog.color.copy(haze); scene.fog.density=storm ? .032 : .000065

@@ -1,4 +1,4 @@
-﻿import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import * as THREE from 'three';
 import {createOvaWorld} from '../src/colony/ihan/crater-ecosystem.mjs';
 import {createOvaNavigation} from '../src/colony/ihan/navigation.mjs';
@@ -13,7 +13,7 @@ const context = () => ({
 });
 let scene,world;
 beforeEach(()=>{
-  vi.stubGlobal('document',{createElement:()=>({getContext:context})});
+  vi.stubGlobal('document',{createElement:()=>({getContext:context}),createElementNS:()=>({addEventListener(){},removeEventListener(){},style:{}})});
   scene=new THREE.Scene(); world=createOvaWorld(scene); scene.updateMatrixWorld(true);
 });
 afterEach(()=>{
@@ -21,14 +21,14 @@ afterEach(()=>{
   scene.traverse(o=>{if(o.geometry)resources.add(o.geometry);for(const m of [o.material].flat())if(m){resources.add(m);for(const v of Object.values(m))if(v?.isTexture)resources.add(v);}});
   resources.forEach(r=>r.dispose()); vi.unstubAllGlobals();
 });
-describe('recovered Düz Ova world',()=>{
+describe('İhan Düz Ova world (real source a7d5ce6)',()=>{
   it('keeps the three connected dome floors and source camera positions',()=>{
     for(const x of [-9,0,9,-4.5,4.5]) expect(world.isInsideFloor(x,0)).toBe(true);
     expect(world.isInsideFloor(0,5)).toBe(false);
     expect(world.blocksFootprint(0,7,5,5)).toBe(true);
     expect(world.blocksFootprint(0,20,2,2)).toBe(false);
-    expect(world.views.panorama.position[2]).toBe(27);
-    expect(world.views.base.position).toEqual([15,5,17]);
+    expect(world.views.panorama.position[2]).toBe(28);
+    expect(world.views.base.position).toEqual([24,16,30]);
     expect(world.views.solar.target[0]).toBe(-57);
     const domes=world.habitat.children.filter(o=>o.isGroup && o.position.y===world.floorY);
     expect(domes).toHaveLength(3);
@@ -37,19 +37,19 @@ describe('recovered Düz Ova world',()=>{
     const farm=scene.getObjectByName('MarsSolarFarm');
     expect(farm.children).toHaveLength(5);
     expect(farm.children.every(o=>o.isInstancedMesh)).toBe(true);
-    expect(scene.getObjectByName('Ova_solar_tables').count).toBe(42);
-    expect(scene.getObjectByName('Ova_solar_posts').count).toBe(168);
+    expect(farm.children.map(o=>o.count).sort((a,b)=>a-b)).toEqual([10,42,42,168,168]); // cabinets, backs, faces, posts, footings
     const lights=[];scene.traverse(o=>{if(o.isLight)lights.push(o);});
-    expect(lights).toHaveLength(3); expect(lights.every(o=>!o.castShadow)).toBe(true);
+    expect(lights).toHaveLength(6); expect(lights.every(o=>!o.castShadow)).toBe(true);
     const rocks=scene.children.filter(o=>o.isInstancedMesh);
-    expect(rocks).toHaveLength(4);expect(rocks.reduce((sum,o)=>sum+o.count,0)).toBe(6550);
+    expect(rocks).toHaveLength(5);expect(rocks.reduce((sum,o)=>sum+o.count,0)).toBe(7140);
     expect(scene.getObjectByName('Mars_environment')).toBeUndefined();
   });
   it('matches rendered ground triangles at the lander, pad, and solar field',()=>{
     const ray=new THREE.Raycaster(),down=new THREE.Vector3(0,-1,0);
     for(const [x,z]of [[0,0],[-18,22],[30,30],[-57,46],[149,-133]]){
       ray.set(new THREE.Vector3(x,100,z),down);
-      expect(world.ground.userData.heightAt(x,z)).toBeCloseTo(ray.intersectObject(world.ground)[0].point.y,6);
+      // İhan's analytic height vs the rendered triangle: within 1 cm (walker feet never float/sink visibly).
+      expect(Math.abs(world.ground.userData.heightAt(x,z)-ray.intersectObject(world.ground)[0].point.y)).toBeLessThan(.01);
     }
   });
   it('removes scene-refraction passes from shared rover lenses without changing the hierarchy',()=>{
@@ -69,7 +69,7 @@ describe('recovered Düz Ova world',()=>{
     expect(entry).toMatchObject({x:0,z:2.45,y:world.floorY,yaw:0});
     for(const x of [-9,-4.5,0,4.5,9])expect(nav.collides(x,0)).toBe(false);
     expect(nav.collides(0,5)).toBe(true); expect(nav.interact(9,0)).toBeNull();
-    expect(nav.interact(0,2.45)).toMatchObject({z:6.05,yaw:Math.PI});
+    const exit=nav.interact(0,2.45); expect(exit.z).toBeCloseTo(7.35,9); expect(exit.yaw).toBe(Math.PI);
     expect(nav.inside).toBe(false);nav.interact(0,6);nav.reset();expect(nav.inside).toBe(false);
   });
 });

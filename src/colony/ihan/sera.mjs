@@ -124,7 +124,7 @@ export function createGreenhouse(scene){
   }
   k.box(1.35,.06,2.4,x,2.5,z,'dark');const lm=new T.MeshStandardMaterial({color:0xc6cbc5,emissive:0xa548dc,emissiveIntensity:0});k.box(1.22,.022,2.22,x,2.46,z,lm);leds.push(lm);
   for(const dz of [-1.05,1.05])k.pipe([[x-.65,1,z+dz],[x-.65,2.5,z+dz],[x+.65,2.5,z+dz],[x+.65,1,z+dz]],.025,'steel');
-  const light=new T.PointLight(0xb95bff,0,3,2);light.position.set(x,2.25,z);group.add(light);plantLights.push(light);
+  /* Host perf: no per-bed point light (each extra light is shaded on every surface); the emissive LED panel above shows the grow light. */
  }
  leaves.count=leafCount;stems.count=stemCount;grains.count=grainCount;plugs.count=plugCount;for(const o of [leaves,stems,grains,plugs]){o.castShadow=true;o.receiveShadow=true;group.add(o);}
  for(let row=0;row<3;row++){const rz=-3.8+row*3.35-1.1;k.pipe([[1.85,.83,rz],[4.25,.83,rz]],.035,'blue');}k.pipe([[4.25,.83,-5],[4.25,.83,4.8]],.045,'blue');k.box(1.2,1.2,.9,2.85,.88,5.2,'white');k.pipe([[4.25,.83,4.8],[4.25,.83,5.2],[3.46,.83,5.2]],.045,'blue');k.flange(3.46,.83,5.2,'x');

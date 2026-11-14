@@ -65,7 +65,8 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
     mesh.updateWorldMatrix(true,false)
     obstacles.push(new T.Box3().setFromObject(mesh).expandByScalar(.2))
   }
-  const weatherButtons = document.querySelectorAll("[data-solar-weather]")
+  // Host adaptation: the weather buttons only exist on İhan's stand-alone page (and not in node tests).
+  const weatherButtons = typeof document?.querySelectorAll === "function" ? document.querySelectorAll("[data-solar-weather]") : []
   const update = (factor) => {
     const produced = 42 * 10 * 2 * 2.5 * .25 * .8 * factor
     const balance = produced - 413
@@ -77,5 +78,31 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
     for (const button of weatherButtons) button.addEventListener("click", () => update(Number(button.dataset.solarWeather)))
     update(1)
   }
+  instanceByGeometry(T, farm)
   return {farm, level, x0, z0}
+}
+
+// Host optimisation (Emre/Claude): the farm is static, so the ~390 meshes above (42 tables × back,
+// face, 4 columns, 4 footings + 10 cabinets) collapse into one InstancedMesh per geometry/material
+// pair — same geometry and placement, ~5 draw calls instead of ~390.
+function instanceByGeometry(T, root) {
+  root.updateMatrixWorld(true)
+  const inverse = root.matrixWorld.clone().invert()
+  const groups = new Map()
+  root.traverse(mesh => {
+    if (!mesh.isMesh || mesh.isInstancedMesh) return
+    const key = mesh.geometry.uuid + "|" + mesh.material.uuid
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(mesh)
+  })
+  for (const meshes of groups.values()) {
+    const [first] = meshes
+    const batch = new T.InstancedMesh(first.geometry, first.material, meshes.length)
+    meshes.forEach((mesh, i) => batch.setMatrixAt(i, inverse.clone().multiply(mesh.matrixWorld)))
+    batch.castShadow = batch.receiveShadow = true
+    batch.computeBoundingSphere()
+    for (const mesh of meshes) mesh.removeFromParent()
+    root.add(batch)
+  }
+  for (const child of [...root.children]) if (child.isGroup && !child.children.length) root.remove(child)
 }
