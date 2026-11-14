@@ -100,7 +100,7 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles, destinations) {
     const ctx=label.getContext("2d")
     ctx.fillStyle="#263033";ctx.fillRect(0,0,256,80)
     ctx.fillStyle="#ddf1ed";ctx.font="bold 30px monospace";ctx.fillText((i+1)+" / DC > AC",18,35)
-    ctx.font="23px monospace";ctx.fillText("42 PANEL",68,66)
+    ctx.font="23px monospace";ctx.fillText(i<2?"42 / DOĞRUDAN":"42 / BATARYA",25,66)
     const texture=new T.CanvasTexture(label)
     texture.colorSpace=T.SRGBColorSpace
     part(rack,new T.PlaneGeometry(.68,.21),new T.MeshBasicMaterial({map:texture}),-.63,.93,1.87)
@@ -146,6 +146,11 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles, destinations) {
       "solar-balance":fmt.format(result.energy-413)+" kWh/sol",
       "solar-life-gap":fmt.format(result.lifeGap)+" kWh",
       "solar-average":fmt.format(result.average)+" kW",
+      "solar-direct":fmt.format(result.direct)+" kWh",
+      "solar-backup":fmt.format(result.backup)+" kWh",
+      "solar-charged":fmt.format(result.charged)+" kWh",
+      "solar-day-led":fmt.format(result.dayLed)+" saat",
+      "solar-day-gap":fmt.format(result.dayGap)+" kWh",
       "solar-drill":fmt.format(result.drilling)+" saat · "+fmt.format(result.waterLiters)+" / 100 L",
       "solar-led":fmt.format(result.lit)+" / 12,33 saat · %"+fmt.format(result.lit/DAYLIGHT_HOURS*100),
       "solar-storage":fmt.format(stored)+" / 180 kWh · %"+fmt.format(soc*100)
