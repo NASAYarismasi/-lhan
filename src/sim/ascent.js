@@ -107,6 +107,7 @@ export function createAscent({ targetAltitude = 185000, pitchKick = .012 } = {})
       time: state.time, altitude: r - EARTH.radius, downrange: EARTH.radius * (theta - EARTH_SURFACE_RATE * state.time),
       velocity: Math.hypot(vr, vt), surfaceVelocity: f.speed, verticalSpeed: vr,
       acceleration: Math.hypot(f.ar, f.at), mach: f.speed / f.atm.speedOfSound, dynamicPressure: f.q,
+      pressure: f.atm.pressure, density: f.atm.density, thrust: f.thrust,
       throttle: state.throttle, stage: state.stage, mass: vehicle.mass, pitch: state.pitch,
       propellant: Object.fromEntries(vehicle.stages.map(s => [s.id, s.propellant])),
       flightPathAngle: Math.atan2(vr, vt), apoapsis: orbit.apoapsis - EARTH.radius, periapsis: orbit.periapsis - EARTH.radius,

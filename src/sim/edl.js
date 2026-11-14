@@ -20,7 +20,7 @@ export function entryFromOrbit(orbitAltitude = 250000, periapsisAltitude = -5000
 /** Planar rotating-atmosphere lifting entry + throttleable SRP. All output uses SI. */
 export function createEDL({ vector = entryFromOrbit().vector, propellant = LANDER.propellantMass } = {}) {
   const state = { vector: [...vector, propellant], time: 0, status: 'ENTRY', throttle: 0, powered: false,
-    peakHeating: 0, heatLoad: 0, peakDeceleration: 0, touchdownSpeed: null, events: [] };
+    peakHeating: 0, heatLoad: 0, peakDeceleration: 0, touchdownSpeed: null, control: { ar: 0, at: 0 }, events: [] };
   function command(s) {
     const [r, , vr, vt, fuel] = s, altitude = r - MARS.radius;
     const rel = vt - MARS.rotation * r, speed = Math.hypot(vr, rel);
@@ -55,6 +55,7 @@ export function createEDL({ vector = entryFromOrbit().vector, propellant = LANDE
     if (state.status === 'LANDED' || state.status === 'FAILED') return;
     const previous = [...state.vector];
     const control = command(previous);
+    state.control = control;
     state.throttle = control.throttle;
     if (state.powered) state.status = 'DESCENT';
     state.vector = rk4(previous, state.time, dt, s => {
@@ -84,13 +85,14 @@ export function createEDL({ vector = entryFromOrbit().vector, propellant = LANDE
   }
   function getTelemetry() {
     const [r, theta, vr, vt, propellant] = state.vector;
-    const control = { ar: 0, at: 0 }, f = forces(state.vector, control);
+    const f = forces(state.vector, state.control);
     return { time: state.time, altitude: r - MARS.radius, downrange: MARS.radius * theta,
       velocity: Math.hypot(vr, vt), surfaceVelocity: f.speed, verticalSpeed: vr,
       flightPathAngle: Math.atan2(vr, vt), propellant, mass: LANDER.dryMass + propellant,
       throttle: state.throttle, engineFiring: state.throttle > 0, inAtmosphere: r - MARS.radius < LANDER.entryAltitude,
       ballisticCoefficient: f.mass / (LANDER.cd * LANDER.area), mach: f.speed / f.atm.speedOfSound,
       dynamicPressure: .5 * f.atm.density * f.speed ** 2, peakHeating: state.peakHeating,
+      pressure: f.atm.pressure, density: f.atm.density, heatFlux: f.heating, acceleration: f.acceleration,
       heatLoad: state.heatLoad, peakDeceleration: state.peakDeceleration, touchdownSpeed: state.touchdownSpeed, status: state.status };
   }
   return { state, step, getTelemetry };

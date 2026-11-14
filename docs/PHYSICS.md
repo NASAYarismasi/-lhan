@@ -88,6 +88,14 @@ SRP, h<15 km ve h<1,4·dstop+2 km koşulunda başlar; dstop = vrel²/[2(Fmax/m�
 
 ## Doğrulama
 
+### Task 2 görsel katman eki
+
+Görsel yenilemede uçuş kuvvetleri, görev geçişleri ve iniş JSON'u değiştirilmedi. Render için `pressure`, `density`, `thrust` ve EDL'de anlık `heatFlux` telemetriye eklendi. EDL `acceleration` alanı son motor komutunu da içeren toplam yerçekimi dışı ivmeyi bildirir; SRP itkisinin g göstergesine katıldığı ayrı testle doğrulanır.
+
+`countdown.js` saf T−10 / RS-25 T−6,5 / SRB T0 sekansıdır; T0'da mevcut `mission.launch()` çağrılır. Terminal motor çalıştırma süresinde ana uçuşun yakıtı harcanmaz. `debris.js` ana aracı etkilemeyen, testli ters-kare balistik ayrılma parçaları üretir; ayrılma impulsları ve sabit dönme hızları oyun varsayımıdır. Bu modül önceki metindeki “ayrılmış kademeler çizilmez” sınırının yerini alır.
+
+NASA gündüz/gece Dünya, Viking Mars ve gerçek kataloglardan üretilmiş 4K SVS yıldız dokuları eklendi. Eski aşağıdaki görsel prototip notları Task 1'in doğrulama kaydıdır; güncel çizim mimarisi ve sınırlar [RENDERING.md](RENDERING.md) dosyasındadır. Fizik dışı kabin güç görevi/yürüme etkileşimi yerine doğrudan uçuş kontrolü kullanılır.
+
 `npm test` atmosfer referanslarını, katman sürekliliğini, orbital eleman dönüşümünü, 10 yörünge boyunca <10⁻⁹ enerji hatasını, yakıt/kademe muhasebesini, tam kalkışı, yarım adım yakınsamasını, transferi, EDL güvenli/başarısız inişi, 259 günlük erzağı, tüm görev zincirini, hızlandırma güvenlik geçişini, giriş ve olay aboneliğini sınar. `npm run build` üretim derlemesidir. `window.advanceTime(ms)` aynı sabit adımları sürer ve istenen ilerlemenin bütün iş kuyruğunu tamamlar; `render_game_to_text()` SI telemetriyi ve etkileşim durumunu döndürür. Normal RAF döngüsünde iş bütçesi dolarsa `backlogSeconds` kalan zamanı gösterir. Yeni dış varlık eklenmemiştir; eski NASA GLB’leri ve programatik geometri korunur.
 
 Varsayılan referans koşusu: Max-Q **56,58 s / 29,01 kPa**, SRB ayrılması **126,02 s**, yörüngeye giriş **469,02 s**, **180,04 × 195,87 km**, maksimum yük **3,8006 g**. Bağımsız EDL: **1,5003 m/s** temas, yaklaşık **4,96 t** yakıt; deorbit yakıtı dahil tam görevde inişte yaklaşık **4,39 t** kalır. Tam görev tarayıcıda WASD/E, kamera, kabin gücü, Q, P, B, T, varışta hızlandırma sınırı ve sıfırlama ile doğrulandı; ekran görüntüleri incelendi, yeni sayfa/konsol hatası görülmedi. Görseller eski prototip düzeyinde bırakılmıştır; Orion modeli Mars lander için geçici yer tutucudur.

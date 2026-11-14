@@ -1,14 +1,56 @@
-# Görsel varlıklar ve kaynaklar
+# Görsel varlıklar ve lisanslar
 
-Bu görev yeni dış görsel varlık eklemez. Mevcut model dosyaları korunmuş ve çizim kodu `src/render/` altına taşınmıştır.
+Tüm çalışma zamanı varlıkları yereldir; oyun internet erişimi olmadan çalışır. NASA adı/amblemi için marka kuralları geçerlidir; NASA onayı iddia edilmez. NASA/USGS görselleri proje kodunun lisansına dönüştürülmez.
 
-| Yerel dosya | Kaynak | Kullanım / değişiklik |
+## Gezegen ve gökyüzü dosyaları
+
+| Yerel dosya | Kaynak URL / kredi | Lisans ve işleme |
 |---|---|---|
-| `public/assets/sls.glb` | [NASA SLS Block 1](https://science.nasa.gov/3d-resources/space-launch-system-sls-block-1/) | Önceki prototipte NASA STL’sinden Blender ile sadeleştirilip GLB’ye dönüştürülmüş. |
-| `public/assets/orion.glb` | [NASA Orion Capsule](https://science.nasa.gov/3d-resources/orion-capsule/) | Önceki prototipte NASA STL’sinden sadeleştirilmiş GLB. Mars inişinde yalnızca geçici temsili geometri; fizik aracı Orion değildir. |
-| `public/assets/astronaut.glb` | [NASA Astronaut](https://science.nasa.gov/3d-resources/astronaut/) | Prototipte bulunan Draco sıkıştırmalı GLB; bu görevde değiştirilmedi. |
-| `public/draco/*` | [Three.js Draco dağıtımı](https://github.com/mrdoob/three.js/tree/dev/examples/jsm/libs/draco) | Mevcut çözücüler, yerel `THREE-LICENSE.txt` korunur; çözücülerin üst bilgi lisansları geçerlidir. |
+| `public/textures/earth-day.jpg` | [NASA Blue Marble: Next Generation, Temmuz](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/), [indirilen dosya](https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/july/world.200407.3x5400x2700.jpg). Reto Stöckli, NASA Earth Observatory/GSFC. | NASA kamu malı; 5400×2700 kaynak 4096×2048'e küçültüldü, JPEG kalite 90. |
+| `public/textures/earth-night.jpg` | [NASA Black Marble 2016](https://science.nasa.gov/earth/earth-observatory/earth-at-night/), [indirilen dosya](https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144897/BlackMarble_2016_01deg_gray.jpg). Joshua Stevens / NASA Earth Observatory; Miguel Román / NASA GSFC, Suomi NPP VIIRS. | NASA kamu malı; 3600×1800 gri ışık mozaiği, mevcut JPEG korundu. Yalnız gece tarafında emissive katkı. |
+| `public/textures/mars-color.jpg` | [USGS Viking MDIM 2.1 kayıt/lisans](https://astrogeology.usgs.gov/search/map/mars_viking_colorized_global_mosaic_232m), [Planetary Society kamu malı ayna kaydı](https://www.planetary.org/space-images/color-map-of-mars-viking-mdim-2-1), [indirilen PNG](https://planetary.s3.amazonaws.com/assets/images/4-mars/2014/Mars_Viking_MDIM21_ClrMosaic_global_2500m.png). NASA/JPL/USGS. | Kamu malı, USGS kullanım kısıtı yok. 2,5 km/piksel ayna PNG'si 4096×2048 JPEG kalite 89'a küçültüldü; büyük kaynak PNG depoya dahil değil. |
+| `public/textures/stars.jpg` | [NASA SVS Deep Star Maps 2020](https://svs.gsfc.nasa.gov/4851/), [4K EXR kaynak](https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004851/starmap_2020_4k.exr). NASA/Goddard Space Flight Center Scientific Visualization Studio, Ernie Wright; Gaia DR2: ESA/Gaia/DPAC. | [NASA SVS kamu malı politikası](https://svs.gsfc.nasa.gov/help/). 4096×2048 EXR, Three.js EXRLoader ile Float32'ye çözüldü; RGB başına `(x/(1+x))^(1/2.2)` dönüşümü, JPEG kalite 94. Takımyıldız çizimleri kullanılmadı. |
 
-NASA tarafından üretilen modeller [NASA medya kullanım koşulları](https://www.nasa.gov/nasa-brand-center/images-and-media/) kapsamında eğitimsel gösterimde kullanılır. NASA adı, rozet ve amblemleri için ayrı marka sınırlamaları vardır; NASA desteği/onayı iddia edilmez. Kaynak sayfalarında belirtilen üçüncü taraf istisnaları varsa onlar geçerlidir.
+NASA görselleri için [NASA medya kullanımı](https://www.nasa.gov/nasa-brand-center/images-and-media/) geçerlidir. SVS haritası gerçek Hipparcos/Tycho/Gaia/UCAC yıldız konumları/parlaklık/renklerinden türetilmiştir; rastgele yıldız yerleşimi kullanılmaz. Parlaklık gösterim amaçlı azaltılır.
 
-Gezegen desenleri, yıldızlar, rampalar, kabin, duman ve alev geometrileri kodda programatik üretilir. Dış doku veya üçüncü taraf oyun kodu eklenmemiştir.
+## Mevcut NASA modelleri
+
+| Yerel dosya | Kaynak URL | Lisans ve kullanım |
+|---|---|---|
+| `public/assets/sls.glb` | [NASA SLS Block 1](https://science.nasa.gov/3d-resources/space-launch-system-sls-block-1/) | NASA kamu malı / kaynak sayfasındaki istisnalar. Önceki prototipte STL → sadeleştirilmiş GLB. Dosya korunur; çalışma zamanında kademe bölgelerine ayrılıp malzeme/renk eklenir. |
+| `public/assets/orion.glb` | [NASA Orion Capsule](https://science.nasa.gov/3d-resources/orion-capsule/) | NASA kamu malı / kaynak istisnaları. Önceki STL → GLB korunur, yörünge aracında kullanılır. Mars lander ayrı prosedürel konsepttir. |
+| `public/assets/astronaut.glb` | [NASA Astronaut](https://science.nasa.gov/3d-resources/astronaut/) | NASA kaynak modeli; kaynak istisnaları ve NASA medya koşulları geçerlidir. Draco GLB korunur, kabinde üç kopya. Oturma için çalışma zamanında yaklaşık verteks düzenlemesi yapılır. |
+
+## Yazı tipi dosyaları
+
+Tümü [The Barlow Project Authors](https://github.com/jpt/barlow) tarafından, **SIL Open Font License 1.1** ile yayımlanmıştır. Tam lisans `public/fonts/OFL.txt` içinde korunur. [Kaynak lisans URL'si](https://raw.githubusercontent.com/google/fonts/main/ofl/barlow/OFL.txt).
+
+| Dosya | Kaynak URL | Aile / ağırlık / lisans |
+|---|---|---|
+| `public/fonts/barlow-0.ttf` | [Google Fonts Barlow](https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700) | Barlow 400, OFL-1.1 |
+| `public/fonts/barlow-1.ttf` | [Google Fonts Barlow](https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700) | Barlow 500, OFL-1.1 |
+| `public/fonts/barlow-2.ttf` | [Google Fonts Barlow](https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700) | Barlow 600, OFL-1.1 |
+| `public/fonts/barlow-3.ttf` | [Google Fonts Barlow](https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700) | Barlow 700, OFL-1.1 |
+| `public/fonts/barlow-4.ttf` | [Google Fonts Barlow Condensed](https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700) | Barlow Condensed 400, OFL-1.1 |
+| `public/fonts/barlow-5.ttf` | [Google Fonts Barlow Condensed](https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700) | Barlow Condensed 500, OFL-1.1 |
+| `public/fonts/barlow-6.ttf` | [Google Fonts Barlow Condensed](https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700) | Barlow Condensed 600, OFL-1.1 |
+| `public/fonts/barlow-7.ttf` | [Google Fonts Barlow Condensed](https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700) | Barlow Condensed 700, OFL-1.1 |
+| `public/fonts/fonts.css` | Aynı Google Fonts CSS yanıtı | Yerel dosyalara yönlendirilmiş `@font-face` bildirimleri; OFL fontları kullanır. |
+| `public/fonts/OFL.txt` | [Google Fonts OFL metni](https://raw.githubusercontent.com/google/fonts/main/ofl/barlow/OFL.txt) | Değiştirilmemiş OFL-1.1 metni. |
+
+## Mevcut çözücüler
+
+| Dosya | Kaynak / lisans |
+|---|---|
+| `public/draco/draco_decoder.js` | [Three.js Draco dağıtımı](https://github.com/mrdoob/three.js/tree/dev/examples/jsm/libs/draco); Draco Apache-2.0, dosya üstbilgileri korunur. |
+| `public/draco/draco_decoder.wasm` | Aynı dağıtım, Draco Apache-2.0. |
+| `public/draco/draco_wasm_wrapper.js` | Aynı dağıtım, Draco Apache-2.0. |
+| `public/draco/THREE-LICENSE.txt` | [Three.js MIT lisansı](https://github.com/mrdoob/three.js/blob/dev/LICENSE); mevcut metin korunur. |
+
+## Prosedürel içerik ve tamamlanabilecek varlıklar
+
+Bulut alfa haritası, scrub/beton/folyo/kum dokuları, LC-39B geometrisi, Mars arazi/kayaları, lander, kabin, etiketler ve plume/duman/plazma/toz shaderları bu projede üretilir; üçüncü taraf resim içermez. Ses WebAudio ile üretilir, ses dosyası yoktur. Prosedürel bulut ve arazi gerçek zamanlı hava/DEM değildir.
+
+İlk `eoimages.gsfc.nasa.gov` bağlantıları reset, doğrudan USGS indirmesi erişim hatası verdi; yukarıdaki NASA Science/Planetary Society kaynaklarıyla **gerekli dört harita tamamlandı**. Başlangıçta indirilen 1K yıldız önizlemesi son 4K EXR türeviyle değiştirildi.
+
+İsteğe bağlı gerçek bulut haritası için [NASA Blue Marble Clouds kaydı](https://visibleearth.nasa.gov/images/57747/blue-marble-clouds) üzerinden `cloud_combined_2048.jpg` indirilebilir; bu ortamda eski [doğrudan adres](https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg) erişilemedi. Şimdilik seeded prosedürel alfa kullanılır. Ayrı NASA okyanus/specular maskesi bulunmadığından gündüz dokusunun mavi baskınlığından yaklaşık okyanus maskesi hesaplanır. Mars yerel DEM/normal haritası eklenmedi; gerçek araziyle eşleştirilmiş bir iniş sahası yoktur.

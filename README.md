@@ -47,24 +47,43 @@ Ortak alanları değiştirmeden önce üç kişi birlikte karar versin.
 - [3D kalkış ve Mars transfer sahnelerini geliştir](https://github.com/NASAYarismasi/Emre/issues/2)
 - [Mars inişini ve koloniye veri teslimini tamamla](https://github.com/NASAYarismasi/Emre/issues/3)
 
-## 3D kalkış prototipi
+## Çalıştırma ve demo
 
 ```powershell
 npm ci
 npm run dev
 ```
 
-Terminaldeki yerel adresi açıp **Göreve gir** seçeneğini seçin. **WASD** ile yürüyün, sahneye tıklayıp fareyle veya ok tuşlarıyla bakın. Yeşil kalkış paneline yaklaşınca **E** ile fırlatmayı başlatın. Kabinde kırmızı güç paneline yürüyüp **E** ile sistemi açın. **Q** kol bilgisayarını açar ve kapatır. **F** tam ekran, **Esc** fare kilidinden çıkış. Gömülü tarayıcıda fare kilidi çalışmazsa sürükleyerek veya oklarla bakabilirsiniz.
+**Geri sayımı başlat** ile T−10'dan kalkışa geçilir. Varsayılan otopilot gerçek fizik çekirdeğini izler. Yörüngeye ulaşınca **B** Mars transferini başlatır; seyirde **.** ile 100000× hız seçilebilir. Mars yakalama otomatik, Mars yörüngesindeki **B** inişi başlatır.
 
+| Kontrol | İşlev |
+|---|---|
+| 1 / 2 / 3 / 4 / 5 / 6 | Takip / kabin / yer takibi / motor / sinematik / harita |
+| C | Kamera değiştir |
+| Fare sürükleme / tekerlek | Takip kamerası yörüngeleme / yakınlaştırma |
+| Boşluk / E | Geri sayım; uçuşta güvenli kademe atımı |
+| B | Park yörüngesinde TMI veya Mars deorbit |
+| , / . / T | Zamanı yavaşlat / hızlandır / hızlandır |
+| A, ardından Shift / Ctrl / Z / X | Manuel gaz; artır / azalt / tam / kes |
+| Esc / P | Duraklat, kalite/ses/sıfırlama menüsü |
+| H / Q · M · F | Yardım · sesi kapat/aç · tam ekran |
 
-SLS ve Orion, README’deki NASA STL kaynaklarından Blender’da sadeleştirilip GLB’ye çevrildi. NASA astronot GLB’si kendi Draco sıkıştırmasıyla yüklü. Bu önizleme için yaklaşık model ölçekleri ve animasyon profili kullanılıyor. Kol bilgisayarı şimdilik süre ve aktif adımı gösteriyor. Mars inişi ve fizik hesabı sonraki aşama.
+Manuel gaz yalnız kalkış ve transfer/yakalama yanışlarında aktiftir. Atmosferde veya motor yanarken en fazla 10× hızlandırma uygulanır. NASA modelleri, gezegenler ve yıldız haritası yereldir; demo internet gerektirmez.
 
+## Uçuş ve görsel katman
 
-## Dünya–Mars uçuş modeli
+50 Hz deterministik SLS kalkışı, Kepler yörüngeleri, Hohmann transferi, yakıt/erzak muhasebesi ve kuvvet tabanlı Mars EDL bulunur. [Fizik modeli ve sınırları](docs/PHYSICS.md).
 
-**1** dış kamera, **2** kabin kamerası, **3** Güneş merkezli rota, **P** zaman akışını duraklatır. Görev park yörüngesi, transfer, Mars yakalama, motorlu iniş ve yüzey teması aşamalarını içerir.
+Araç merkezli kayan koordinatlar, gerçek yarıçaplı gezegenler, ACES/sRGB, gölgeli LC-39B, bloom/FXAA, altı kamera, canlı kabin ekranları, basınçla genişleyen motor egzozları, dünyaya bağlı duman, balistik kademe ayrılması, plazma, retro egzoz/toz, Türkçe HUD ve prosedürel WebAudio eklidir. [Render mimarisi ve sınırlamalar](docs/RENDERING.md), [varlık kaynakları/lisansları](ASSETS.md).
 
-- Transfer modeli dairesel ve eş düzlemli gezegen yörüngeleri varsayar. Kepler denklemiyle zaman boyunca konum, vis-viva ile Güneş’e göre hız hesaplanır. İlk açı yaklaşık 44,34°, süre 258,87 gündür. [NASA yörünge referansı](https://science.nasa.gov/learn/basics-of-space-flight/chapter4-1/)
-- İdeal darbeli manevralarda 200 km Dünya park yörüngesinden yaklaşık 3,61 km/s çıkış ve 250 km dairesel Mars yörüngesine yaklaşık 2,10 km/s yakalama deltası hesaplanır. Gerçek görev tarihleri, eğim, atmosfer, motor eylemleri ve yakıt lojistiği bu modelde çözülmez. Mars yakalama ile yüzey inişi arasında yörüngeden çıkış ayrı bir manevra olarak tasarlanacak.
-- Kalkış, egzoz, atmosfer geçişi ve motorlu inişin gösterimi şimdilik ölçekli mühendislik simülasyonu yerine temsili animasyon profilleriyle çalışır. Orion geometrisi varış sahnesinde konsept iniş aracının yerini tutuyor.
-- [Odyssey13](https://github.com/velluz-dev/Odyssey13) aynı yarışmadan 2D transfer örneği. Depoda yeniden kullanım lisansı görünmedi. [2025 3D Space Apps projesi](https://github.com/miguel-pramos/nasa-space-apps-2025) MIT lisanslı Godot koloni prototipi. [Orbiter](https://github.com/orbitersim/orbiter) MIT lisanslı C++ uçuş simülatörü. Bu PR’de bu projelerden kod alınmadı.
+Mars iniş aracı ve NTR görevi konsepttir. Mars yerel arazisi, kabin ve bulutlar prosedüreldir; gerçek arazi DEM'i ve tam atmosfer ışınım çözümü yoktur. 60 FPS hedeflenir; kalite menüsünden çözünürlük ve pahalı efektler azaltılabilir.
+
+```powershell
+npm test
+npm run build
+npm run preview -- --host 127.0.0.1 --port 5177
+# Ayrı terminalde, bu makinedeki Playwright kurulumu ile:
+node scripts/render-qa.mjs
+```
+
+`window.render_game_to_text()` SI telemetri ve kamera durumunu verir; `window.advanceTime(ms)` aynı fizik döngüsünü deterministik ilerletir. Ekran görüntüleri ve eşleşen görev durumları [docs/screenshots](docs/screenshots/) içindedir. Ortak iniş verisi sözleşmesi korunmuştur.
