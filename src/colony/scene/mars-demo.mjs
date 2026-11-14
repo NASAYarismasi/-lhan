@@ -4,9 +4,12 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js"
 import { OrbitControls } from "three/addons/controls/OrbitControls.js"
 import { moduleModel } from "./mars-models.mjs"
 import { createFirstPerson, placeholderAstronaut } from "./mars-fps.mjs"
-import { createOvaWorld } from '../ova/world.mjs'
-import { createOvaNavigation } from '../ova/navigation.mjs'
-import { prepareOvaRover } from '../ova/assets.mjs'
+// IHAN-SRC: real ?han source replaces recovered construction.
+import { createOvaWorld } from '../ihan/crater-ecosystem.mjs'
+import { createOvaNavigation } from '../ihan/navigation.mjs'
+import { prepareOvaRover } from '../ihan/assets.mjs'
+// IHAN-SRC: installation host; no standalone renderer or loop.
+import { createLifeSupportFacilities } from '../ihan/life-support.mjs'
 import { createEnvironment } from "./environment.mjs"
 import { createFootprints } from "./surface.mjs"
 import { batchStaticModel, prepareSurfaceMaterials } from "./static-model.mjs"
@@ -76,6 +79,9 @@ function makeScene() {
   function groundY(x, z) {
     return ground.userData.heightAt(x, z)
   }
+  // IHAN-SRC: keep real facilities outside the dome/lander clearances.
+  const lifeSupport = createLifeSupportFacilities(scene, groundY, state)
+  Object.assign(ova.views, lifeSupport.views)
   const tracks = createFootprints(scene, groundY)
   const crewLander = batchStaticModel(createMarsLander())
   // Arrival apron north-west of the colony: the +Z hatch exits toward the pad.
@@ -163,6 +169,9 @@ function makeScene() {
       Math.abs(x - area.x) < area.halfX + buffer && Math.abs(z - area.z) < area.halfZ + buffer)
   }
   function collides(x, z) {
+    // IHAN-SRC: greenhouse uses its original interior/airlock bounds.
+    if (lifeSupport.inside) return lifeSupport.collides(x,z)
+    if (lifeSupport.collides(x,z)) return true
     if (navigation.inside) return navigation.collides(x,z)
     if (roofAccess) return true
     if (navigation.collides(x,z)) return true
@@ -216,7 +225,7 @@ function makeScene() {
     const { x, z, supportId } = target.position
     const size = footprints[type]
     if (!supportId) {
-      if (ova.blocksFootprint(x,z,size.x,size.z)) {
+      if (ova.blocksFootprint(x,z,size.x,size.z) || lifeSupport.blocksFootprint(x,z,size.x,size.z)) { // IHAN-SRC
         return {error:'Üs yapıları ve güneş tarlası çevresini açık bırak.'}
       }
       if (hardware.some(asset => asset.visible && Math.abs(x - asset.position.x) < size.x + asset.userData.radius &&
@@ -277,8 +286,9 @@ function makeScene() {
         : target?.item && (target.surface === "blocked" || !selected)
         ? modules[target.item.type].name + (canAccess ? " · R ile çatı görüşü" : "")
         : show ? candidate.error ?? (target.position.supportId ? "E · Çatıya monte et" : "E · Zemine yerleştir") : ""
-      const airlock = navigation.nearAirlock(camera.position.x,camera.position.z)
-        ? (navigation.inside ? 'E · Hava kilidinden çık' : 'E · Hava kilidinden gir') : label
+      // IHAN-SRC: greenhouse airlock prompt takes priority near its own doors.
+      const airlock = lifeSupport.prompt(camera) || (navigation.nearAirlock(camera.position.x,camera.position.z)
+        ? (navigation.inside ? 'E · Hava kilidinden çık' : 'E · Hava kilidinden gir') : label)
       if (aimLabel.textContent !== airlock) aimLabel.textContent = airlock
 
     }
@@ -328,6 +338,8 @@ function makeScene() {
     },
     onAim: () => drawTarget(targetAt()),
     interact: () => {
+      // IHAN-SRC: E -> chamber -> pressure cycle -> E -> second door.
+      if (lifeSupport.interact(camera, fps)) return
       const transition = navigation.interact(camera.position.x,camera.position.z)
       if (transition) {
         fps.teleport(new T.Vector3(transition.x,transition.y+1.65,transition.z),0,transition.yaw)
@@ -355,7 +367,7 @@ function makeScene() {
       status.textContent = "Nişanı çatıda istediğin noktaya getir. E ile yerleştir, R ile in."
     },
     collides,
-    groundY: (x, z) => navigation.inside ? ova.floorY : roofAccess ? roofAccess.top : groundY(x, z),
+    groundY: (x, z) => lifeSupport.inside ? lifeSupport.floorY : navigation.inside ? ova.floorY : roofAccess ? roofAccess.top : groundY(x, z),
     onStep(x, z, yaw, running) {
       if (!roofAccess && !navigation.inside) tracks.step(x, z, yaw)
       environment.step(running)
@@ -417,6 +429,9 @@ function makeScene() {
   }
   function tick(delta, updateAim = true) {
     environment.update(delta)
+    // IHAN-SRC: drive vendor calculations from the same Mars clock, including warp.
+    lifeSupport.update(delta, environment.telemetry, camera, fps)
+    environment.setLifeSupport(lifeSupport.telemetry)
     tracks.update(delta)
     if (fps.active) fps.update(delta, updateAim)
     else controls.update()
@@ -434,6 +449,7 @@ function makeScene() {
     storm: Boolean(state.timeline.at(-1)?.storm), activeTask: status.textContent,
     world:'duz-ova', view:currentView, insideHabitat:navigation.inside, assets:{crew:Boolean(teamCharacter),rover:reference.children.length>0},
     fps: fps.active, player: fps.telemetry, environment: environment.telemetry,
+    lifeSupport: lifeSupport.telemetry, // IHAN-SRC: deterministic observer contract
     placement: { selected: selected ?? null, preview: preview.visible, marker: marker.visible },
     rendering: { ...frameStats, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, pixelRatio: renderer.getPixelRatio() },
   })
@@ -454,6 +470,9 @@ function makeScene() {
     if (disposed) return
     const playerIndex = state.crew.findIndex(person => person.id === playerId)
     byId("helmet").textContent = "Astronot " + (playerIndex + 1) + " · Sağlık %" + state.crew[playerIndex].health
+    // IHAN-SRC: sol completion uses the new colony power/weather row.
+    lifeSupport.sync(state)
+    environment.setLifeSupport(lifeSupport.telemetry)
     environment.sync(state, status.textContent)
     objects.clear()
     for (const node of nodes) depositMeshes.get(node.id).visible = workshop.collected[node.id] !== state.sol
@@ -571,14 +590,15 @@ function makeScene() {
 
   return {
     redraw: redrawScene,
-    resetEnvironment() { environment.reset() },
+    resetEnvironment() { environment.reset(); lifeSupport.reset(state) }, // IHAN-SRC
     loadNASA,
     dispose() {
       if (disposed) return
       disposed = true; lifecycle.abort(); taskObserver.disconnect()
       renderer.setAnimationLoop(null)
       if (gpuFence) gl.deleteSync(gpuFence)
-      observer.disconnect(); fps.dispose(); ova.dispose(); environment.dispose(); tracks.dispose(); controls.dispose()
+      observer.disconnect(); lifeSupport.dispose(); fps.dispose(); ova.dispose(); // IHAN-SRC
+       environment.dispose(); tracks.dispose(); controls.dispose()
       window.render_game_to_text = previousTextHook; window.advanceTime = previousAdvanceHook
       const geometries = new Set(), materials = new Set(), textures = new Set()
       scene.traverse(part => {

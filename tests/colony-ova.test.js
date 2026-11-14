@@ -1,9 +1,9 @@
 ﻿import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import * as THREE from 'three';
-import {createOvaWorld} from '../src/colony/ova/world.mjs';
-import {createOvaNavigation} from '../src/colony/ova/navigation.mjs';
-import {calculateEclss} from '../src/colony/ova/eclss.mjs';
-import {prepareOvaRover} from '../src/colony/ova/assets.mjs';
+import {createOvaWorld} from '../src/colony/ihan/crater-ecosystem.mjs';
+import {createOvaNavigation} from '../src/colony/ihan/navigation.mjs';
+import {calculateEclss} from '../src/colony/ihan/eclss.mjs';
+import {prepareOvaRover} from '../src/colony/ihan/assets.mjs';
 
 const context = () => ({
   createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),

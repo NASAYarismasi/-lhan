@@ -85,6 +85,7 @@ export function colonyWristData(detail = {}) {
   const task = typeof d.activeTask === 'string' ? d.activeTask : d.activeTask?.label ?? d.activeTask?.title ?? d.activeTask?.name;
   return {
     mode: 'colony', phaseLabel: 'JEZERO / YÜZEY OPERASYONLARI', sol: finite(state.sol), lmst: localTime(d.lmst),
+    lifeSupport: d.lifeSupport ?? null, // IHAN-SRC: physical reserves are separate from person-sol stocks
     crew, livingCrew, resources, storm, stormLabel: storm === null ? 'Hava verisi bekleniyor' : storm ? 'Toz fırtınası' : 'Açık gökyüzü',
     activeTask: task || 'Görev seçilmedi', nextEvent: task || 'Koloni operasyonları',
     headlamp: typeof d.headlamp === 'boolean' ? d.headlamp : null, sunElevationDeg: finite(d.sunElevationDeg),

@@ -1,4 +1,4 @@
-import { bindEclss } from './ova/eclss.mjs';
+import { bindEclss } from './ihan/eclss.mjs';
 // Colony page entry. Scene, FPS and colony rules: İhan (src/colony/scene, mars-koloni.mjs, mars-atolye.mjs).
 import { createColony, createColonyFromFlight, exampleLanding } from './mars-koloni.mjs';
 import { readLandingPayload } from './handoff.js';
