@@ -68,6 +68,11 @@ Bulut alfa haritası, scrub/beton/folyo/kum dokuları, LC-39B geometrisi, Mars a
 | `public/models/colony/habitat-nasa.glb` | [NASA/LaRC Habitat Demonstration Unit](https://science.nasa.gov/3d-resources/habitat-demonstration-unit/) | NASA medya kuralları |
 | `public/models/colony/insight.glb` | [NASA InSight Cruise Lander](https://science.nasa.gov/3d-resources/insight-cruise-lander/) (Brian E. Kumanchik) | NASA medya kuralları |
 | `public/models/colony/perseverance.glb` | [NASA/JPL Mars 2020 Perseverance](https://science.nasa.gov/3d-resources/mars-2020-perseverance-rover/) | NASA medya kuralları |
+| `public/models/colony/ingenuity.glb` | [NASA/Brian E. Kumanchik · Ingenuity Mars Helicopter](https://science.nasa.gov/3d-resources/ingenuity-mars-helicopter/) · İhan’ın `kaynak/public/models/ingenuity.glb` dosyası | NASA 3D Resources; NASA medya kullanım kuralları ve kaynak istisnaları geçerlidir. GLB değiştirilmedi; sahnede 1,2 m genişliğe ölçeklenir. |
+| `public/models/colony/team-astronaut.glb` | [NASA Astronaut](https://science.nasa.gov/3d-resources/astronaut/) · İhan’ın `kaynak/public/models/team-astronaut.glb` dosyası, Emre’nin uçuş astronotu | NASA 3D Resources; NASA medya kullanım kuralları ve kaynak istisnaları geçerlidir. GLB değiştirilmedi; sahnede 1,88 m boya ölçeklenir. |
 | `src/colony/scene/jezero.json` | [NASA PDS MGS/MOLA MEGDR](https://pds-geosciences.wustl.edu/missions/mgs/megdr.html), Jezero Krateri 25×25 örnek | Kamu malı veri |
 
 Koloni kuralları, kaynak miktarları, tarım ve atölye değerleri eğitsel oyun birimleridir (İhan, `MARS-ENTEGRASYON.md`). Uçuştan koloniye birim dönüşümü: `src/sim/landingPayload.js` (1 birim = bir astronotun bir sollük ihtiyacı, NASA BVAD oranlarıyla).
+
+<!-- SYNC: procedural surface provenance; no external imagery added. -->
+`src/colony/scene/crater-terrain.mjs` ve `regolith-detail.mjs`, İhan’ın `kaynak/src/crater-ecosystem.mjs` içindeki prosedürel krater profilleri ve 512² regolit detay üreticisinden uyarlanmıştır. Merkezde 60 m çaplı düz oyun sahası, dışta yassı taşlar ve seyreltilmiş instanced çakıl halısı vardır. Yerel yükseklikler ölçülmüş Jezero DEM’i değildir. Mevcut MOLA tabanlı bölgesel ufuk ve YÜZEY’in Mars24 ortamı korunur; HiRISE ortofotosu veya ikinci gökyüzü/ışık sistemi eklenmedi.

@@ -7,9 +7,11 @@ import { addSurface, createFirstPerson, placeholderAstronaut } from "./mars-fps.
 import { createEnvironment } from "./environment.mjs"
 import { createFootprints } from "./surface.mjs"
 import { createMarsLander } from "../../render/marsLander.js"
+import { cargoOptions, defaultManifest, planMission, cargoLimitKg, transitDays } from "../mars-gorev-plani.mjs"
+import { createSceneColony } from "./mission-start.mjs"
 import { materialNames, nodes, crops, recipes, levelOf, startWorkshop, recipeError,
-  craft, collect, grow, harvest, sell } from "../mars-atolye.mjs"
-import { modules, roles, exampleLanding, missionLength, createColony, createColonyFromFlight,
+  craft, collect, grow, harvest, replant, sell } from "../mars-atolye.mjs"
+import { modules, roles, exampleLanding, missionLength, createColonyFromFlight,
   footprints, roofSize, siteRadius, worldPlacement,
   placementError, placeModule, assignAstronaut, advanceSol, colonyReport } from "../mars-koloni.mjs"
 import { readLandingPayload } from "../handoff.js"
@@ -18,17 +20,19 @@ const byId = id => document.getElementById(id)
 const status = byId("message")
 const viewport = byId("viewport")
 const canvas = byId("scene")
+const uiLifecycle = new AbortController()
 // Integration (Emre): the colony starts from the flight's real landing payload when one exists.
-const landing = readLandingPayload(exampleLanding)
+let landing = readLandingPayload(exampleLanding)
+let activeMissionPlan = landing.source === "flight" ? undefined : planMission(defaultManifest)
 // Flight payload = crew-sols → person-sols via İhan's createColonyFromFlight.
-const startColony = () => landing.source === "flight" ? createColonyFromFlight(landing) : createColony(landing)
+const startColony = () => createSceneColony(landing, activeMissionPlan)
 let state = startColony()
 let workshop = startWorkshop()
 let selected = state.inventory[0]?.id
 let playerId = state.crew[0].id
 let sceneView
 let lastReport = colonyReport(state)
-const labels = { habitat: "Yaşam alanı", water: "Su", oxygen: "Oksijen", food: "Yiyecek" }
+const labels = { habitat: "Yaşam alanı", water: "Su", oxygen: "Oksijen", food: "Yiyecek", cleanAir: "CO₂ giderimi" }
 
 const pick = position => {
   const issue = placementError(state, selected, position)
@@ -86,13 +90,13 @@ function makeScene() {
   const objects = new T.Group()
   const deposits = new T.Group()
   const depositMeshes = new Map()
-  const oreMaterial = new T.MeshStandardMaterial({ color: 0xe79e55, emissive: 0x5d2916, roughness: .78 })
-  const iceMaterial = new T.MeshStandardMaterial({ color: 0x9dd7ed, emissive: 0x285364, roughness: .42 })
+  const oreMaterial = new T.MeshStandardMaterial({ color: 0xaa7959, roughness: .86 })
+  const iceMaterial = new T.MeshStandardMaterial({ color: 0x8cb0b9, roughness: .48 })
   for (const node of nodes) {
-    const rock = new T.Mesh(new T.DodecahedronGeometry(.71),
+    const rock = new T.Mesh(new T.DodecahedronGeometry(.64, 1),
       node.material === "ice" ? iceMaterial : oreMaterial)
     rock.position.set(node.x, groundY(node.x, node.z) + .4, node.z)
-    rock.scale.set(1.4, .83, 1)
+    rock.scale.set(1.24, .57, .94)
     rock.rotation.y = node.x
     rock.userData.deposit = node
     rock.castShadow = true
@@ -100,16 +104,22 @@ function makeScene() {
     deposits.add(rock)
   }
   const reference = new T.Group()
-  reference.position.set(-27, .02, 2)
+  reference.position.set(-9.5, .02, 4)
+  reference.rotation.y = -.38
   scene.add(objects, deposits, reference)
   const crewModels = new Map()
+  const loadedCharacters = new Set()
+  const retiredCharacters = []
+  let teamCharacter
+  const crewActor = id => crewModels.get(state.crew.findIndex(person => person.id === id))
   const crewColors = [0xd9d2bf, 0xb88052, 0xa9b9c2]
   state.crew.forEach((person, index) => {
     const actor = new T.Group()
     actor.position.set([-6, -2, 6][index], 0, 12.8)
+    actor.position.y = groundY(actor.position.x, actor.position.z)
     actor.add(placeholderAstronaut(crewColors[index]))
     scene.add(actor)
-    crewModels.set(person.id, actor)
+    crewModels.set(index, actor)
   })
   const models = new Map()
   function model(type) {
@@ -153,8 +163,8 @@ function makeScene() {
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
       if (Math.hypot(x - crewLander.position.x - sx * 4, z - crewLander.position.z - sz * 4) < .95) return true
     }
-    for (const [id, actor] of crewModels) {
-      if (id !== playerId && actor.visible && Math.hypot(x - actor.position.x, z - actor.position.z) < .63) return true
+    for (const actor of crewModels.values()) {
+      if (actor.visible && Math.hypot(x - actor.position.x, z - actor.position.z) < .63) return true
     }
     return false
   }
@@ -167,7 +177,7 @@ function makeScene() {
     } else pointer.set(0, 0)
     camera.updateMatrixWorld()
     ray.setFromCamera(pointer, camera)
-    const hits = ray.intersectObjects([ground, objects, deposits, ...hardware], true)
+    const hits = ray.intersectObjects([ground, objects, deposits, ...hardware.filter(asset => asset.visible)], true)
     const hit = hits.find(hit => hit.object.visible)
     if (!hit || (fps.active && hit.distance > 14)) return null
     if (hit.object.userData.deposit) {
@@ -190,7 +200,7 @@ function makeScene() {
     const { x, z, supportId } = target.position
     const size = footprints[type]
     if (!supportId) {
-      if (hardware.some(asset => Math.abs(x - asset.position.x) < size.x + asset.userData.radius &&
+      if (hardware.some(asset => asset.visible && Math.abs(x - asset.position.x) < size.x + asset.userData.radius &&
         Math.abs(z - asset.position.z) < size.z + asset.userData.radius)) return { error: "NASA aracına çok yakın." }
       if (nodes.some(node => Math.abs(x - node.x) < size.x + .7 && Math.abs(z - node.z) < size.z + .7)) {
         return { error: "Kaynak yatağının çevresini açık bırak." }
@@ -242,7 +252,8 @@ function makeScene() {
       const label = deposit
         ? materialNames[deposit.material] + (target.distance > 8 ? " · Yaklaş" : " · E ile topla")
         : crop ? modules[target.item.type].name + " · " +
-          (workshop.growing[target.item.id] >= crop.sols ? "E ile hasat et" :
+          (workshop.growing[target.item.id] === null ? "E ile yeni dönem başlat" :
+            workshop.growing[target.item.id] >= crop.sols ? "E ile hasat et" :
             (workshop.growing[target.item.id] ?? 0) + "/" + crop.sols + " üretim solu")
         : target?.item && (target.surface === "blocked" || !selected)
         ? modules[target.item.type].name + (canAccess ? " · R ile çatı görüşü" : "")
@@ -264,7 +275,7 @@ function makeScene() {
       return
     }
     if (crops[target?.item?.type]) {
-      harvestUnit(target.item)
+      tendCrop(target.item)
       return
     }
     if (!selected) return
@@ -317,7 +328,7 @@ function makeScene() {
   })
   // Crew arrives beside the +Z hatch ladder; avoid respawning inside the landing legs.
   const hatchSpawn = new T.Vector3(crewLander.position.x + .7, 0, crewLander.position.z + 4.8)
-  crewModels.get(playerId).position.set(hatchSpawn.x, groundY(hatchSpawn.x, hatchSpawn.z), hatchSpawn.z)
+  crewActor(playerId).position.set(hatchSpawn.x, groundY(hatchSpawn.x, hatchSpawn.z), hatchSpawn.z)
   fps.respawn(hatchSpawn)
   canvas.addEventListener("pointermove", event => {
     if (fps.active) return
@@ -381,7 +392,7 @@ function makeScene() {
     for (const node of nodes) depositMeshes.get(node.id).visible = workshop.collected[node.id] !== state.sol
     roofs.clear()
     groundObstacles.length = 0
-    for (const asset of hardware.filter(asset => asset !== crewLander)) groundObstacles.push({ x: asset.position.x, z: asset.position.z,
+    for (const asset of hardware.filter(asset => asset !== crewLander && asset.visible)) groundObstacles.push({ x: asset.position.x, z: asset.position.z,
       halfX: asset.userData.radius, halfZ: asset.userData.radius })
     const moduleLights = []
     for (const item of state.placed) {
@@ -415,6 +426,7 @@ function makeScene() {
       })
       const plants = unit.getObjectByName("plants")
       if (plants) {
+        plants.visible = item.type === "treePod" || workshop.growing[item.id] !== null
         plants.scale.setScalar(.38 + .62 * (workshop.growing[item.id] ?? 0) / crops[item.type].sols)
       }
       objects.add(unit)
@@ -444,9 +456,9 @@ function makeScene() {
         }
       }
     }
-    for (const person of state.crew) {
-      crewModels.get(person.id).visible = person.health > 0 && (!fps.active || person.id !== playerId)
-    }
+    state.crew.forEach((person, index) => {
+      crewModels.get(index).visible = person.health > 0 && (!fps.active || person.id !== playerId)
+    })
     environment.syncModules(moduleLights)
     scene.updateMatrixWorld(true)
     preview.clear()
@@ -458,11 +470,21 @@ function makeScene() {
       [-1, 1].map(b => groundY(x + a * size.x, z + b * size.z)))) + .006
   }
 
+  async function parseSceneModel(bytes) {
+    const gltf = await parseModel(bytes)
+    if (disposed) {
+      disposeModel(gltf.scene)
+      throw new DOMException("Scene disposed", "AbortError")
+    }
+    return gltf
+  }
+
   async function loadNASA() {
     const targets = [
       ["habitat-data", gltf => {
         habitatAsset = fitModel(gltf.scene, 5.12)
         roofHeight = new T.Box3().setFromObject(habitatAsset).max.y + .16
+        if (models.has("habitat")) retiredCharacters.push(models.get("habitat"))
         models.delete("habitat")
       }],
       ["insight-data", gltf => {
@@ -472,19 +494,40 @@ function makeScene() {
         const detached = leftPanel.clone()
         leftPanel.matrixWorld.decompose(detached.position, detached.quaternion, detached.scale)
         panelAsset = fitModel(detached, 2.18)
+        if (models.has("solarPanel")) retiredCharacters.push(models.get("solarPanel"))
         models.delete("solarPanel")
         const lander = fitModel(gltf.scene, 6)
-        lander.position.set(27, groundY(27, 5), 5)
+        lander.position.set(9.5, groundY(9.5, -6), -6)
+        lander.rotation.y = .3
         lander.userData.radius = 3
         scene.add(lander)
         hardware.push(lander)
       }],
+      ["ingenuity-data", gltf => {
+        const helicopter = fitModel(gltf.scene, 1.2)
+        helicopter.position.set(-6.5, groundY(-6.5, .5), .5)
+        helicopter.rotation.y = .63
+        helicopter.userData.radius = .68
+        scene.add(helicopter)
+        hardware.push(helicopter)
+      }],
+      ["team-crew-data", gltf => {
+        teamCharacter = fitCharacter(gltf.scene)
+        for (const [index, actor] of crewModels) {
+          if (loadedCharacters.has(index)) continue
+          retiredCharacters.push(...actor.children)
+          actor.clear()
+          actor.add(teamCharacter.clone(true))
+        }
+        byId("character-status").textContent = "Uçuş modelindeki NASA astronotu kullanılıyor."
+      }],
     ]
     const results = await Promise.allSettled(targets.map(async ([id, apply]) =>
-      apply(await parseModel(await loadBytes(id)))))
+      apply(await parseSceneModel(await loadBytes(id, lifecycle.signal)))))
+    if (disposed) return
     redrawScene()
     byId("nasa-status").textContent = results.every(item => item.status === "fulfilled")
-      ? "NASA modelleri sahnede · HDU yaşam modülü ve InSight güneş paneli"
+      ? "NASA modelleri sahnede · HDU, InSight ve Ingenuity"
       : "Bazı NASA modelleri açılamadı. İlgili parça için geçici model kullanılıyor."
   }
 
@@ -506,7 +549,7 @@ function makeScene() {
           for (const value of Object.values(material)) if (value?.isTexture) textures.add(value)
         }
       })
-      for (const source of [...models.values(), habitatAsset, panelAsset]) source?.traverse(part => {
+      for (const source of [...models.values(), habitatAsset, panelAsset, teamCharacter, ...retiredCharacters]) source?.traverse(part => {
         if (part.geometry) geometries.add(part.geometry)
         for (const material of [part.material].flat()) if (material) {
           materials.add(material)
@@ -519,48 +562,41 @@ function makeScene() {
       renderer.dispose()
     },
     toggleView() {
-      if (!fps.active) fps.respawn(crewModels.get(playerId).position)
+      if (!fps.active) fps.respawn(crewActor(playerId).position)
       fps.setActive(!fps.active)
     },
     selectPlayer() {
       roofAccess = undefined
-      fps.respawn(crewModels.get(playerId).position)
+      fps.respawn(crewActor(playerId).position)
       redrawScene()
     },
     async loadCharacter(id, bytes) {
-      const actor = crewModels.get(id)
+      const index = state.crew.findIndex(person => person.id === id)
+      const actor = crewModels.get(index)
       if (!actor) throw new RangeError("Astronot bulunamadı.")
-      const gltf = await parseModel(bytes)
-      const character = gltf.scene
-      const bounds = new T.Box3().setFromObject(character)
-      const size = bounds.getSize(new T.Vector3())
-      const center = bounds.getCenter(new T.Vector3())
-      if (!(size.y > 0)) throw new Error("Karakter geometrisi bulunamadı.")
-      const scale = 1.88 / size.y
-      character.scale.multiplyScalar(scale)
-      character.position.multiplyScalar(scale)
-      character.position.add(new T.Vector3(-center.x * scale, -bounds.min.y * scale, -center.z * scale))
-      character.traverse(part => { if (part.isMesh) part.castShadow = true })
-      for (const child of [...actor.children]) {
-        child.traverse(part => {
-          if (!part.isMesh) return
-          part.geometry.dispose()
-          for (const material of new Set([part.material].flat())) {
-            for (const value of Object.values(material)) if (value?.isTexture) value.dispose()
-            material.dispose()
-          }
-        })
-        actor.remove(child)
-      }
+      const gltf = await parseSceneModel(bytes)
+      const character = fitCharacter(gltf.scene)
+      // Shared default GLB resources remain alive until scene teardown.
+      // Retire custom models too, so all geometries/textures have one disposal owner.
+      retiredCharacters.push(...actor.children)
+      actor.clear()
       actor.add(character)
+      loadedCharacters.add(index)
     },
     async loadRover() {
       const button = byId("rover")
       const feedback = byId("rover-status")
+      if (reference.children.length) {
+        reference.visible = !reference.visible
+        button.textContent = reference.visible ? "Perseverance’ı gizle" : "Perseverance’ı göster"
+        feedback.textContent = reference.visible ? "Perseverance, üssün batısında · NASA/JPL" : ""
+        redrawScene()
+        return
+      }
       button.disabled = true
       feedback.textContent = "NASA modeli yükleniyor…"
       try {
-        const gltf = await parseModel(await loadBytes("rover-data"))
+        const gltf = await parseSceneModel(await loadBytes("rover-data", lifecycle.signal))
         const rover = fitModel(gltf.scene, 3)
         reference.position.y = groundY(reference.position.x, reference.position.z)
         reference.add(rover)
@@ -568,10 +604,14 @@ function makeScene() {
         hardware.push(reference)
         redrawScene()
         feedback.textContent = "Perseverance, üssün batısında · NASA/JPL"
+        button.textContent = "Perseverance’ı gizle"
       } catch (error) {
+        if (disposed) return
         console.error(error)
         button.disabled = false
         feedback.textContent = "Model yüklenemedi. Tekrar dene."
+      } finally {
+        button.disabled = false
       }
     },
   }
@@ -583,9 +623,11 @@ const modelFiles = {
   "habitat-data": "habitat-nasa.glb",
   "insight-data": "insight.glb",
   "rover-data": "perseverance.glb",
+  "ingenuity-data": "ingenuity.glb",
+  "team-crew-data": "team-astronaut.glb",
 }
-async function loadBytes(id) {
-  const response = await fetch(import.meta.env.BASE_URL + "models/colony/" + modelFiles[id])
+async function loadBytes(id, signal) {
+  const response = await fetch(import.meta.env.BASE_URL + "models/colony/" + modelFiles[id], { signal })
   if (!response.ok) throw new Error("Model indirilemedi: " + modelFiles[id])
   return response.arrayBuffer()
 }
@@ -600,6 +642,7 @@ async function parseModel(bytes) {
 }
 
 function fitModel(model, width) {
+  // GAME ASSUMPTION: scene presentation widths from the teammate's integration demo.
   const group = new T.Group()
   group.add(model)
   const bounds = new T.Box3().setFromObject(model)
@@ -613,6 +656,32 @@ function fitModel(model, width) {
   return group
 }
 
+
+function fitCharacter(character) {
+  const bounds = new T.Box3().setFromObject(character)
+  const size = bounds.getSize(new T.Vector3())
+  const center = bounds.getCenter(new T.Vector3())
+  if (!(size.y > 0)) throw new Error("Karakter geometrisi bulunamadı.")
+  const scale = 1.88 / size.y // GAME ASSUMPTION: displayed suited astronaut height in metres.
+  character.scale.multiplyScalar(scale)
+  character.position.multiplyScalar(scale)
+  character.position.add(new T.Vector3(-center.x * scale, -bounds.min.y * scale, -center.z * scale))
+  character.traverse(part => { if (part.isMesh) part.castShadow = true })
+  return character
+}
+
+// For asynchronous assets that finish decoding after scene teardown.
+function disposeModel(root) {
+  const resources = new Set()
+  root.traverse(part => {
+    if (part.geometry) resources.add(part.geometry)
+    for (const material of [part.material].flat()) if (material) {
+      resources.add(material)
+      for (const value of Object.values(material)) if (value?.isTexture) resources.add(value)
+    }
+  })
+  for (const resource of resources) resource.dispose()
+}
 
 function button(text, onClick) {
   const item = document.createElement("button")
@@ -634,8 +703,12 @@ function workshopAction(action) {
   }
 }
 
-function harvestUnit(unit) {
+function tendCrop(unit) {
   workshopAction(() => {
+    if (workshop.growing[unit.id] === null) {
+      workshop = replant(workshop, unit)
+      return modules[unit.type].name + " · Yeni üretim dönemi başladı."
+    }
     workshop = harvest(workshop, unit)
     const crop = crops[unit.type]
     return "+" + crop.amount + " " + materialNames[crop.yield] + " · +" + crop.xp + " tarım XP"
@@ -669,10 +742,12 @@ function updateWorkshop(stopped) {
   }))
   byId("harvests").replaceChildren(...state.placed.filter(unit => crops[unit.type]).map(unit => {
     const crop = crops[unit.type]
+    const empty = workshop.growing[unit.id] === null
     const progress = workshop.growing[unit.id] ?? 0
     const action = button(modules[unit.type].name + " · " +
-      (progress === crop.sols ? "Hasat et" : progress + "/" + crop.sols + " sol"), () => harvestUnit(unit))
-    action.disabled = stopped || progress < crop.sols
+      (empty ? "Yeni dönem başlat" : progress === crop.sols ? "Hasat et" : progress + "/" + crop.sols + " sol"),
+      () => tendCrop(unit))
+    action.disabled = stopped || (!empty && progress < crop.sols)
     return action
   }))
   const saleButtons = [["mineral", 2], ["potato", 4], ["bean", 6], ["apple", 8]].map(([id, price]) => {
@@ -733,10 +808,13 @@ function update() {
     label.append(select)
     return label
   }))
-  byId("resources").textContent = "Su " + state.supplies.water + " · Oksijen " + state.supplies.oxygen +
-    " · Yiyecek " + state.supplies.food + " · Yedek parça " + state.supplies.spareParts
+  const number = new Intl.NumberFormat("tr", { maximumFractionDigits: 2 })
+  byId("resources").textContent = "Su " + number.format(state.supplies.water) + " · Oksijen " + number.format(state.supplies.oxygen) +
+    " · Yiyecek " + number.format(state.supplies.food) + " · Yedek parça " + state.supplies.spareParts
   byId("energy").textContent = day ? "Üretilen " + day.generation + " · Harcanan " + day.used + " · Batarya " + day.battery + "/" + day.capacity
     : "Başlangıç enerjisi " + state.startupEnergy
+  byId("system-status").textContent = state.operations
+    ? (day?.systems.join(" · ") || "Yaşam desteği donanımını yerleştir ve inşaata ata.") : ""
   byId("buildings").textContent = state.placed.filter(item => item.active).length + " etkin · " +
     state.placed.filter(item => !item.active).length + " inşaat bekliyor"
   const tbody = byId("log")
@@ -771,14 +849,107 @@ byId("advance").onclick = () => {
       : "Sol " + day.sol + " tamamlandı. Sıradaki sol için görevleri ata."
   }
 }
-byId("reset").onclick = () => {
-  state = startColony()
+function beginColony(next) {
+  state = next
+  sceneView?.resetEnvironment()
   workshop = startWorkshop()
   byId("workshop-message").textContent = "Buz ve maden yataklarını keşfet."
   selected = state.inventory[0]?.id
-  sceneView?.resetEnvironment()
+  playerId = (state.crew.find(person => person.health > 0) ?? state.crew[0]).id
+  byId("player").replaceChildren(...state.crew.map((person, index) => new Option("Astronot " + (index + 1), person.id)))
+  byId("player").value = playerId
   status.textContent = "Envanterden modül seç ve uygun yüzeye yerleştir."
   update()
+  sceneView?.selectPlayer()
+}
+function startPlannedColony(plan) {
+  return createSceneColony(landing, plan)
+}
+byId("reset").onclick = () => beginColony(startColony())
+
+const cargoForm = byId("cargo-form")
+function configureCargo() {
+  for (const [key, value] of Object.entries(defaultManifest)) {
+    if (key !== "equipment") cargoForm.elements.namedItem(key).value = value
+  }
+  for (const [id, item] of Object.entries(cargoOptions)) {
+    const label = document.createElement("label")
+    label.className = "check"
+    label.title = item.description
+    const input = document.createElement("input")
+    input.type = "checkbox"
+    input.name = "equipment"
+    input.value = id
+    input.checked = defaultManifest.equipment.includes(id)
+    label.append(input, item.name)
+    byId("cargo-kit").append(label)
+  }
+}
+function currentPlan() {
+  if (!cargoForm.checkValidity()) return null
+  const inputs = new FormData(cargoForm)
+  try {
+    return planMission({
+      mealDays: Number(inputs.get("mealDays")), waterDays: Number(inputs.get("waterDays")),
+      oxygenDays: Number(inputs.get("oxygenDays")), spareParts: Number(inputs.get("spareParts")),
+      driedMealShare: Number(inputs.get("driedMealShare")), equipment: inputs.getAll("equipment"),
+    })
+  } catch { return null }
+}
+function showPlan() {
+  const plan = currentPlan()
+  byId("cargo-launch").disabled = landing.source === "flight" || !plan?.withinLimit
+  if (!plan) {
+    byId("cargo-total").textContent = "Erzak miktarlarını izin verilen aralıkta gir."
+    byId("transit-plan").textContent = ""
+    byId("cargo-list").replaceChildren()
+    return
+  }
+  const kg = value => Math.round(value).toLocaleString("tr-TR") + " kg"
+  byId("cargo-total").textContent = "Mars iniş yükü " + kg(plan.massKg) + " / " + kg(cargoLimitKg) +
+    (plan.withinLimit ? "" : " · Kütle sınırı aşıldı")
+  const { transit } = plan
+  byId("transit-plan").textContent = transitDays + " Dünya günü transfer için " +
+    kg(transit.foodKg) + " öğün, " + kg(transit.waterKg) + " su ve " +
+    kg(transit.oxygenReserveKg) + " yedek oksijen. Transfer aracında su geri kazanımı ve elektroliz varsayılıyor."
+  byId("cargo-list").replaceChildren(...plan.cargo.map(entry => {
+    const item = document.createElement("li")
+    item.textContent = entry.name + " · " + kg(entry.kg)
+    return item
+  }))
+}
+configureCargo()
+showPlan()
+cargoForm.addEventListener("input", showPlan, { signal: uiLifecycle.signal })
+cargoForm.addEventListener("submit", event => {
+  event.preventDefault()
+  const plan = currentPlan()
+  if (landing.source === "flight" || !plan?.withinLimit) return
+  activeMissionPlan = plan
+  beginColony(startPlannedColony(plan))
+  updateLandingSource("Dünya yük planı uygulandı")
+}, { signal: uiLifecycle.signal })
+byId("landing-file").onchange = async event => {
+  const input = event.currentTarget
+  const file = input.files[0]
+  if (!file) return
+  input.disabled = true
+  try {
+    const payload = JSON.parse(await file.text())
+    const next = createColonyFromFlight(payload)
+    landing = { ...payload, source: "flight" }
+    activeMissionPlan = undefined
+    beginColony(next)
+    showPlan()
+    updateLandingSource("JSON uçuş verisi alındı")
+    byId("landing-status").textContent = "Uçuş verisi alındı · " + file.name + " · İniş tercihi " +
+      (payload.landingSite === "flat" ? "düz saha" : "engebeli saha") + " · Başlangıç enerjisi " + payload.surfaceEnergy
+  } catch {
+    byId("landing-status").textContent = "İniş verisi okunamadı. Emre’nin crew, supplies, modules, landingSite ve surfaceEnergy alanlarını içeren JSON dosyasını seç."
+  } finally {
+    input.disabled = false
+    input.value = ""
+  }
 }
 byId("report").onclick = () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(lastReport, null, 2)], { type: "application/json" }))
@@ -819,6 +990,7 @@ try {
   }
   byId("rover").onclick = () => sceneView.loadRover()
   sceneView.loadNASA()
+  sceneView.loadRover()
   if (document.querySelector("main").dataset.startView === "fps") sceneView.toggleView()
 } catch (error) {
   console.error(error)
@@ -828,8 +1000,25 @@ try {
   byId("character-file").disabled = true
   status.textContent = "3B görünüm açılamadı. WebGL destekleyen bir tarayıcıda aç."
 }
+updateLandingSource(landing.source === "flight" ? "Uçuştan gelen iniş verisi" : "Varsayılan Dünya yükü")
 update()
 
-// Surface worker lifecycle: preserve a back-forward cached page, dispose on real teardown/HMR.
-window.addEventListener("pagehide", event => { if (!event.persisted) sceneView?.dispose() }, { once: true })
-if (import.meta.hot) import.meta.hot.dispose(() => sceneView?.dispose())
+function updateLandingSource(label) {
+  byId("landing-source").textContent = label + " · Jezero Krateri"
+  byId("landing-source").title = "İniş stoku · Su " + state.supplies.water + " · Oksijen " + state.supplies.oxygen +
+    " · Yiyecek " + state.supplies.food + " kişi-sol · Yedek parça " + state.supplies.spareParts
+  byId("landing-status").textContent = label + (landing.source === "flight"
+    ? " · Uçuş erzakları korunuyor; Dünya yük planı yalnızca önizlemedir."
+    : " · Yük planını değiştirip yeni Mars operasyonunu başlatabilirsin.")
+}
+
+// Preserve a back-forward cached page; release listeners/resources on real teardown/HMR.
+function disposePage() {
+  uiLifecycle.abort()
+  sceneView?.dispose()
+  for (const id of ["advance", "reset", "report", "view-mode", "rover", "character-file", "landing-file", "player"]) {
+    byId(id).onclick = byId(id).onchange = null
+  }
+}
+window.addEventListener("pagehide", event => { if (!event.persisted) disposePage() }, { signal: uiLifecycle.signal })
+if (import.meta.hot) import.meta.hot.dispose(disposePage)

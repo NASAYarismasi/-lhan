@@ -1,11 +1,14 @@
 import * as T from 'three'
+import { getTerrainHeight } from './crater-terrain.mjs'
+import { generateSurfaceDetailTexture } from './regolith-detail.mjs'
 
 // GAME ASSUMPTION: seeded construction-site microtopography, sediment and rock distribution.
 // Local detail is procedural, not an additional NASA DEM or sampled Jezero rock census.
 function height(x,z) {
-  const radius=Math.hypot(x,z), blend=T.MathUtils.smoothstep(radius,17,90)
+  const radius=Math.hypot(x,z)
   const edge=T.MathUtils.smoothstep(radius,95,137)
-  return T.MathUtils.lerp(-.035,-.16,edge)+(1-edge)*blend*(.38*Math.sin(x*.049)*Math.cos(z*.066)+.12*Math.sin(x*.17+z*.09))
+  // A shared datum keeps the 60 m colony pad level with the regional terrain apron.
+  return T.MathUtils.lerp(-.035,-.12,edge)+(1-edge)*(getTerrainHeight(x,z)-getTerrainHeight(0,0))
 }
 export function addSurface(scene) {
   let seed=831
@@ -23,12 +26,18 @@ export function addSurface(scene) {
     colors.push(color.r,color.g,color.b)
   }
   geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.computeVertexNormals()
-  // Only the tiny bump texture repeats; albedo is continuous world-space vertex colour.
-  const data=new Uint8Array(128*128*4)
-  for(let i=0;i<data.length;i+=4) {const v=Math.round(100+random()*90);data.set([v,v,v,255],i)}
-  const bump=new T.DataTexture(data,128,128);bump.wrapS=bump.wrapT=T.RepeatWrapping
-  bump.minFilter=T.LinearMipmapLinearFilter;bump.magFilter=T.LinearFilter;bump.generateMipmaps=true;bump.repeat.set(220,220);bump.needsUpdate=true
-  const surface=new T.Mesh(geometry,new T.MeshStandardMaterial({vertexColors:true,roughness:1,bumpMap:bump,bumpScale:.014}))
+  // Ilhan's 512px sand/pebble detail, sampled at two scales over continuous vertex albedo.
+  const bump=generateSurfaceDetailTexture()
+  bump.repeat.set(75,75)
+  const material=new T.MeshStandardMaterial({vertexColors:true,roughness:1,bumpMap:bump,bumpScale:.018})
+  material.onBeforeCompile=shader=>{
+    shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      float grainA=texture2D(bumpMap,vBumpMapUv).r;
+      float grainB=texture2D(bumpMap,vBumpMapUv*3.17+vec2(0.37,0.11)).r;
+      diffuseColor.rgb*=0.62+(grainA*0.66+grainB*0.34)*0.82;`)
+  }
+  material.customProgramCacheKey=()=> 'colony-regolith-detail-v1'
+  const surface=new T.Mesh(geometry,material)
   surface.name='Jezero_near_regolith';surface.receiveShadow=true;scene.add(surface)
   // Exact triangle interpolation, matching PlaneGeometry's diagonal. No per-frame terrain raycast.
   surface.userData.heightAt=(x,z)=>{
@@ -39,10 +48,10 @@ export function addSurface(scene) {
     const h01=points.getY((iz+1)*stride+ix),h11=points.getY((iz+1)*stride+ix+1)
     return a+b<1 ? h00+(h10-h00)*a+(h01-h00)*b : h11+(h01-h11)*(1-a)+(h10-h11)*(1-b)
   }
-  const rocks=new T.InstancedMesh(new T.DodecahedronGeometry(1,0),new T.MeshStandardMaterial({roughness:1}),1650)
+  const rocks=new T.InstancedMesh(new T.DodecahedronGeometry(1,0),new T.MeshStandardMaterial({roughness:1}),900)
   const pose=new T.Object3D(),color=new T.Color()
   for(let i=0;i<rocks.count;i++) {
-    const a=random()*Math.PI*2,r=8+Math.sqrt(random())*135
+    const a=random()*Math.PI*2,r=30+Math.sqrt(random())*112
     let x=Math.sin(a)*r,z=Math.cos(a)*r
     // Keep the primary construction floor and landing apron free of large obstacles.
     if(Math.abs(x)<12 && Math.abs(z)<16) x+=Math.sign(x||1)*14
@@ -55,6 +64,26 @@ export function addSurface(scene) {
     rocks.setMatrixAt(i,pose.matrix);rocks.setColorAt(i,color.set(0x746555).multiplyScalar(.65+random()*.7))
   }
   rocks.castShadow=true;rocks.receiveShadow=true;rocks.name='Jezero_instanced_clasts';scene.add(rocks)
+  // Laptop budget: three static rock draws rather than the original 36,600 instances.
+  const gravel=new T.InstancedMesh(new T.DodecahedronGeometry(1,0),rocks.material,2400)
+  const slabs=new T.InstancedMesh(new T.BoxGeometry(1,1,1),rocks.material,260)
+  for(const layer of [gravel,slabs]) {
+    for(let i=0;i<layer.count;i++) {
+      const a=random()*Math.PI*2,r=(layer===slabs?30:8)+Math.sqrt(random())*(layer===slabs?105:51)
+      let x=Math.sin(a)*r,z=Math.cos(a)*r
+      // Keep the lander's feet and hatch route free of decorative stones.
+      if(x<-10 && x>-27 && z>5 && z<26) z+=24
+      const size=layer===slabs?.4+random()**2.6*1.8:.02+random()**2.6*.09
+      pose.position.set(x,surface.userData.heightAt(x,z),z)
+      pose.rotation.set((random()-.5)*.22,random()*Math.PI*2,(random()-.5)*.22)
+      pose.scale.set(size,size*(layer===slabs?.16:.65),size*(.7+random()*.6));pose.updateMatrix()
+      layer.setMatrixAt(i,pose.matrix)
+      layer.setColorAt(i,color.set(0x96705a).multiplyScalar(.7+random()*.55))
+    }
+    layer.castShadow=layer===slabs;layer.receiveShadow=true
+    layer.name=layer===slabs?'Jezero_flat_slabs':'Jezero_gravel_carpet'
+    scene.add(layer)
+  }
   surface.userData.rocks=rocks
   return surface
 }
