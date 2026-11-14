@@ -1,0 +1,118 @@
+/* Flight fonts and --muted / --line / --mint / --amber come from src/style.css. */
+.colony-page { color-scheme: dark; font-size: 14px; line-height: 1.5; }
+.colony-page main { overflow: hidden; }
+.colony-page #viewport { position: absolute; inset: 0; background: #241b1a; }
+.colony-page #scene { position: absolute; }
+.colony-ui { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(#030c1766, transparent 24%, transparent 82%, #030c1740); }
+.colony-ui button, .colony-ui a, .colony-ui input, .colony-ui select, .colony-ui summary { pointer-events: auto; }
+.colony-page button, .colony-page select { min-height: 34px; padding: 7px 11px; border-radius: 3px; }
+.colony-page button:disabled { cursor: default; }
+.colony-page select { color: inherit; background: #0b1a23; border: 1px solid var(--line); max-width: 100%; min-width: 0; }
+.colony-page a { color: var(--mint); text-underline-offset: 3px; }
+.colony-page small, .colony-page .muted { color: var(--muted); }
+.colony-page small { font-size: 12px; }
+.colony-page p { margin: 9px 0; overflow-wrap: anywhere; }
+.colony-topbar { height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 26px; border-bottom: 1px solid var(--line); background: linear-gradient(#05101ef5, #05101eb3); }
+.colony-identity { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit !important; flex-shrink: 0; }
+.colony-identity b { font-size: 13px; font-weight: 600; letter-spacing: 2px; }
+.colony-identity small { display: block; font-size: 9px; letter-spacing: 2px; margin-top: 3px; }
+.colony-mark { border-left: 3px solid var(--mint); padding-left: 9px; font: 34px 'Barlow Condensed', sans-serif; }
+.colony-mark span { color: var(--mint); font-size: 13px; margin-left: 3px; }
+.colony-mission { display: flex; align-items: center; gap: 10px; font-size: 11px; letter-spacing: 1px; }
+.colony-clock { text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.colony-clock strong { display: block; font: 26px 'Barlow Condensed', sans-serif; letter-spacing: 1px; }
+.colony-clock small { font-size: 10px; }
+.landing-strip { position: absolute; top: 81px; left: 26px; right: 26px; font-size: 10px; color: var(--muted); letter-spacing: .3px; }
+.landing-strip b { color: var(--mint); font-weight: 500; }
+.drawer-deck { position: absolute; top: 119px; left: 26px; }
+.drawer-nav { width: 145px; display: grid; gap: 5px; }
+.nav-caption { font-size: 8px; color: var(--muted); letter-spacing: 1.6px; margin-bottom: 9px; }
+.drawer-nav button { text-align: left; font-size: 12px; background: #06131dd9; border-color: #aac7d33d; }
+.drawer-nav button > span { font: 11px 'Barlow Condensed', sans-serif; margin-right: 8px; color: var(--mint); }
+.drawer-nav button[aria-expanded=true] { border-color: var(--mint); color: var(--mint); background: #10282bf2; }
+.colony-drawer { position: absolute; top: 0; left: 159px; width: min(390px, calc(100vw - 237px)); max-height: calc(100dvh - 155px); display: flex; flex-direction: column; border: 1px solid var(--line); border-top: 2px solid var(--mint); border-radius: 3px; background: #06131df5; box-shadow: 0 12px 40px #0005; pointer-events: auto; }
+.drawer-heading { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.drawer-heading h2 { margin: 0; font: 500 23px 'Barlow Condensed', sans-serif; letter-spacing: .5px; }
+.drawer-heading button { min-width: 34px; padding: 0; font-size: 21px; color: var(--muted); }
+.drawer-content { padding: 15px 16px; overflow: auto; overscroll-behavior: contain; min-height: 0; scrollbar-width: thin; scrollbar-color: #668e93 #081822; }
+.drawer-content h3 { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 1.4px; margin: 0 0 10px; color: var(--mint); }
+.colony-page .group { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 16px; }
+.colony-page .buttons, .workshop-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.colony-page .primary { color: #071b20; background: var(--mint); border-color: var(--mint); font-weight: 600; }
+.colony-page label:not(.check) { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; }
+.colony-page .check { display: flex; align-items: center; gap: 8px; margin-bottom: 15px; }
+.colony-page input[type=checkbox] { accent-color: var(--mint); }
+.colony-page input[type=file] { max-width: 100%; min-width: 0; width: 100%; font-size: 12px; }
+.file-row label { flex-wrap: wrap; }
+.file-row summary { cursor: pointer; color: var(--mint); }
+.file-row { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 16px; }
+.workshop-actions { margin: 8px 0; }
+.workshop-actions button { text-align: left; max-width: 100%; font-size: 12px; }
+.workshop-actions small { display: block; font-size: 11px; }
+.colony-page .unit-note { display: block; color: var(--amber); font-size: 11px; }
+.colony-page .info-button { min-height: 26px; min-width: 26px; padding: 0 5px; color: var(--mint); vertical-align: middle; }
+.colony-page .table { overflow-x: auto; margin: 16px 0; }
+.colony-page table { border-collapse: collapse; font-size: 11px; width: 100%; }
+.colony-page th, .colony-page td { border-bottom: 1px solid var(--line); text-align: left; padding: 7px; }
+.colony-page th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+.colony-page footer { font-size: 11px; line-height: 1.8; }
+.realism-note { scroll-margin-top: 10px; }
+.realism-note + .realism-note { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 16px; }
+.realism-note h3 { margin-bottom: 6px; }
+.realism-note p { font-size: 13px; }
+.realism-note a { font-size: 11px; }
+.surface-message { position: absolute; left: 26px; bottom: 22px; max-width: 310px; padding: 12px 14px; background: #06131dc9; border-left: 2px solid var(--mint); font-size: 12px; }
+.surface-message > span { font-size: 8px; letter-spacing: 1.6px; color: var(--mint); }
+.surface-message small { font-size: 10px; }
+.surface-message #message { color: #d9e7eb; margin: 5px 0; }
+.colony-page.drawer-open .surface-message { visibility: hidden; }
+.colony-page #fps-hud { display: none; position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.colony-page .fps #fps-hud { display: block; }
+.colony-page #reticle { position: absolute; top: 50%; left: 50%; width: 9px; height: 9px; transform: translate(-50%, -50%); border: 1px solid #e5edf0c9; border-radius: 50%; box-shadow: 0 0 4px #0008; }
+.colony-page #aim { position: absolute; top: 54%; left: 50%; transform: translateX(-50%); max-width: min(460px, 80%); text-align: center; font-size: 12px; }
+.colony-page #aim:not(:empty) { background: #06131dd9; border: 1px solid var(--line); padding: 7px 12px; }
+.colony-page #helmet { position: absolute; top: 118px; right: 26px; font-size: 11px; background: #06131dbd; padding: 6px 10px; color: #d0e0e4; }
+/* YÜZEY owns children of this overlay. KOL owns bottom-centre/right UI. */
+.colony-page #scene-hud { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.colony-page.pointer-locked .drawer-deck { visibility: hidden; pointer-events: none; }
+.colony-page.pointer-locked .colony-ui button, .colony-page.pointer-locked .colony-ui a, .colony-page.pointer-locked .colony-ui input, .colony-page.pointer-locked .colony-ui select, .colony-page.pointer-locked .colony-ui summary { pointer-events: none; }
+@media (max-width: 900px) {
+ .colony-mission { display: none; }
+ .colony-topbar { padding: 0 16px; }
+ .landing-strip { left: 16px; right: 16px; }
+ .drawer-deck { left: 16px; }
+ .colony-drawer { width: min(390px, calc(100vw - 207px)); }
+ .colony-page #helmet { right: 16px; }
+ .surface-message { left: 16px; max-width: 270px; }
+}
+@media (max-width: 600px) {
+ .colony-topbar { height: 68px; gap: 8px; }
+ .colony-identity { gap: 9px; }
+ .colony-identity b { font-size: 10px; letter-spacing: 1px; }
+ .colony-identity small { font-size: 8px; letter-spacing: 1px; }
+ .colony-mark { font-size: 28px; }
+ .colony-clock strong { font-size: 21px; }
+ .colony-clock small { font-size: 9px; }
+ .landing-strip { top: 74px; font-size: 9px; }
+ .drawer-deck { top: 105px; right: 16px; }
+ .drawer-nav { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+ .nav-caption { display: none; }
+ .drawer-nav button { padding: 6px; font-size: 10px; min-height: 32px; }
+ .drawer-nav button > span { display: none; }
+ .colony-drawer { position: relative; left: auto; width: 100%; margin-top: 8px; max-height: calc(100dvh - 270px); }
+ .drawer-heading { padding: 8px 12px; }
+ .drawer-heading h2 { font-size: 21px; }
+ .drawer-content { padding: 12px; }
+ .colony-page #helmet { top: auto; bottom: 100px; right: 16px; font-size: 10px; }
+ .surface-message { bottom: 15px; max-width: min(270px, calc(100vw - 32px)); padding: 7px 10px; }
+ .surface-message small { display: none; }
+}
+@media (max-height: 550px) and (min-width: 601px) {
+ .drawer-deck { top: 109px; }
+ .drawer-nav { gap: 3px; }
+ .nav-caption { display: none; }
+ .drawer-nav button { min-height: 28px; padding: 4px 8px; }
+ .colony-drawer { max-height: calc(100dvh - 126px); }
+ .surface-message { bottom: 10px; padding: 6px 10px; max-width: 145px; font-size: 10px; }
+ .surface-message small { display: none; }
+}
