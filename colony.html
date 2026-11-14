@@ -29,6 +29,8 @@
     <button type="button" id="resources-toggle" data-drawer="resources-drawer" aria-controls="resources-drawer" aria-expanded="false"><span>01</span> Kaynaklar</button>
     <button type="button" id="crew-toggle" data-drawer="crew-drawer" aria-controls="crew-drawer" aria-expanded="false"><span>02</span> Mürettebat</button>
     <button type="button" id="modules-toggle" data-drawer="modules-drawer" aria-controls="modules-drawer" aria-expanded="false"><span>03</span> Modüller</button>
+    <!-- SYNC: mission planning uses the existing drawer controller. -->
+    <button type="button" id="cargo-toggle" data-drawer="cargo-drawer" aria-controls="cargo-drawer" aria-expanded="false"><span>07</span> Dünya yük planı</button>
     <button type="button" id="workshop-toggle" data-drawer="workshop-drawer" aria-controls="workshop-drawer" aria-expanded="false"><span>04</span> Atölye / tarım</button>
     <button type="button" id="report-toggle" data-drawer="report-drawer" aria-controls="report-drawer" aria-expanded="false"><span>05</span> Görev raporu</button>
     <button type="button" id="realism-toggle" data-drawer="realism-drawer" aria-controls="realism-drawer" aria-expanded="false"><span>ℹ</span> Gerçek veriler</button>
@@ -39,9 +41,31 @@
     <div class="drawer-content">
      <h3>Yaşam desteği <button type="button" class="info-button" data-realism="supplies" aria-label="Erzak birimlerinin gerçek karşılığı">ℹ</button></h3>
      <p id="resources"></p><small class="unit-note">Erzak: kişi-sol · Yedek parça: adet</small>
+     <p id="system-status" role="status"></p>
      <p class="muted">1 erzak birimi = 1 kişinin 1 sollük ihtiyacı. Üç kişi, her sol her kaynaktan 3 birim tüketir.</p>
      <div class="group"><h3>Güç sistemi <button type="button" class="info-button" data-realism="solar" aria-label="Mars’ta güneş enerjisi hakkında">ℹ</button></h3><p id="energy"></p><small>Enerji ve batarya sayıları oyun birimidir; watt veya kWh değildir.</small></div>
      <div class="group"><label class="check"><input type="checkbox" id="priority" checked> Yaşam desteğine öncelik ver</label><button class="primary" id="advance" type="button">Bir sol ilerlet</button><p class="muted">Önce modülleri yerleştir ve ekip görevlerini ata. Bu düğme kaynak hesabını bir sol ilerletir.</p></div>
+    </div>
+   </section>
+   <section id="cargo-drawer" class="colony-drawer" aria-labelledby="cargo-toggle" hidden>
+    <header class="drawer-heading"><h2>Dünya yük planı</h2><button type="button" data-close-drawer aria-label="Yük planını kapat">×</button></header>
+    <div class="drawer-content">
+     <p class="muted">Üç astronot için yüzeye inecek erzak ve donanımı seç. Uçuştan gelen iniş verisi varsa gerçek uçuş stokları kullanılır.</p>
+     <form id="cargo-form">
+      <div class="manifest-form">
+       <label>Paketli öğün (ekip-solü) <input name="mealDays" type="number" min="2" max="20" step="1" required></label>
+       <label>İçme suyu (ekip-solü) <input name="waterDays" type="number" min="2" max="20" step="1" required></label>
+       <label>Yedek oksijen (ekip-solü) <input name="oxygenDays" type="number" min="2" max="20" step="1" required></label>
+       <label>Yedek parça <input name="spareParts" type="number" min="0" max="6" step="1" required></label>
+       <label>Paket türü <select name="driedMealShare"><option value="0">Hazır öğün</option><option value="0.5">Karma</option><option value="1">Liyofilize</option></select></label>
+      </div>
+      <div id="cargo-kit" class="manifest-kit group"></div>
+      <p id="cargo-total" role="status"></p><p id="transit-plan" class="muted"></p>
+      <details><summary>Yük listesini göster</summary><ul id="cargo-list"></ul></details>
+      <p><button class="primary" id="cargo-launch" type="submit">Yükü onayla ve operasyonu başlat</button></p>
+      <small>Liyofilize öğün hazırlamak için su gerekir. Kütle sınırı, cihaz ağırlıkları ve geri kazanım verimleri oyun varsayımlarıdır. Onaylama mevcut koloni turunu yeniden başlatır.</small>
+     </form>
+     <div class="group"><h3>İniş JSON’u yükle</h3><label>Uçuş iniş dosyası <input id="landing-file" type="file" accept=".json,application/json"></label><p id="landing-status" role="status"></p><small>crew, supplies, modules, landingSite ve surfaceEnergy alanları gerekir. Uçuş stokları ekip-solünden kişi-solüne bir kez çevrilir.</small></div>
     </div>
    </section>
    <section id="crew-drawer" class="colony-drawer" aria-labelledby="crew-toggle" hidden>

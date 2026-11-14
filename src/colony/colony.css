@@ -46,6 +46,12 @@
 .file-row label { flex-wrap: wrap; }
 .file-row summary { cursor: pointer; color: var(--mint); }
 .file-row { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 16px; }
+/* SYNC: cargo planning follows the established mission drawer style. */
+.manifest-form input[type=number] { width: 76px; min-height: 34px; padding: 6px 8px; color: inherit; background: #0b1a23; border: 1px solid var(--line); border-radius: 3px; }
+.manifest-kit .check { align-items: flex-start; margin-bottom: 10px; font-size: 12px; }
+#cargo-total { color: var(--mint); font-variant-numeric: tabular-nums; }
+#cargo-list { padding-left: 18px; font-size: 12px; }
+#cargo-drawer summary { cursor: pointer; color: var(--mint); }
 .workshop-actions { margin: 8px 0; }
 .workshop-actions button { text-align: left; max-width: 100%; font-size: 12px; }
 .workshop-actions small { display: block; font-size: 11px; }

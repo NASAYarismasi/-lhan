@@ -13,6 +13,11 @@ class Element extends EventTarget {
   remove() { if (this.parent) this.parent.children=this.parent.children.filter(c=>c!==this); }
   setAttribute(key,value) { this.attributes[key]=value; }
   focus() { document.activeElement=this; }
+  getContext() { return {
+    createImageData: (w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
+    putImageData() {}, createRadialGradient: ()=>({addColorStop() {}}),
+    beginPath() {}, arc() {}, ellipse() {}, fill() {}, stroke() {}, moveTo() {}, lineTo() {},
+  }; }
   getBoundingClientRect() { return {left:0,top:0,width:800,height:600,right:800,bottom:600}; }
 }
 let scene, camera, canvas, dispose;
@@ -112,7 +117,25 @@ describe('FPS movement and terrain contracts', () => {
     landscape.geometry.computeBoundingBox();
     expect(landscape.geometry.boundingBox.max.x).toBe(24000);
     expect(landscape.geometry.boundingBox.max.y).toBeGreaterThan(600);
-    expect(ground.userData.rocks.count).toBe(1650);
+    // Local morphology has no second regional surface underneath it.
+    for (const [x,z] of [[0,0],[35,12],[-49,-43],[149,149]]) {
+      ray.set(new T.Vector3(x,100,z),down);
+      expect(ray.intersectObject(landscape)).toHaveLength(0);
+    }
+    const pad=ground.userData.heightAt(0,0);
+    for (const [x,z] of [[20,0],[-20,0],[0,20],[0,-20]]) expect(ground.userData.heightAt(x,z)).toBeCloseTo(pad,6);
+    ray.set(new T.Vector3(150,100,0),down);
+    expect(ray.intersectObject(landscape)[0].point.y).toBeCloseTo(ground.userData.heightAt(150,0),6);
+    expect(ground.material.bumpMap.image.width).toBe(512);
+    expect(scene.getObjectByName('Jezero_gravel_carpet').count).toBeLessThan(3000);
+    expect(ground.userData.rocks.count).toBeLessThan(1000);
     scene.traverse(o=>{o.geometry?.dispose();for(const m of [o.material].flat()){m?.bumpMap?.dispose();m?.dispose();}});
+  });
+  it('restores the original plan-camera field of view after FPS exploration', () => {
+    camera.fov=48;
+    const fps=createFirstPerson(canvas,camera,{onMode:()=>{},onAim:()=>{},collides:()=>false,groundY:()=>0});
+    dispose=()=>fps.dispose();
+    fps.setActive(true); expect(camera.fov).toBe(66);
+    fps.setActive(false); expect(camera.fov).toBe(48);
   });
 });

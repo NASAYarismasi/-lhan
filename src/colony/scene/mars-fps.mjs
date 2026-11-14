@@ -8,6 +8,7 @@ export function createFirstPerson(canvas, camera, { onMode, onAim, interact, acc
   const savedPosition = new T.Vector3(), savedRotation = new T.Quaternion()
   const abort = new AbortController(), options = { signal: abort.signal }
   let active = false, walkingTime = 0, distanceSinceStep = 0, accumulator = 0, aimTime = 0
+  let savedFov = camera.fov
   let jump = false, vertical = createSuitMotion()
   const clearKeys = () => { keys.clear(); jump = false }
   function turn(dx, dy) {
@@ -27,6 +28,7 @@ export function createFirstPerson(canvas, camera, { onMode, onAim, interact, acc
     if (active === value) return
     active = value; clearKeys(); accumulator = 0
     if (value) {
+      savedFov = camera.fov
       savedPosition.copy(camera.position); savedRotation.copy(camera.quaternion)
       camera.position.copy(spawn); look.set(-.10, 0, 0); turn(0,0)
       canvas.focus({ preventScroll: true })
@@ -34,7 +36,7 @@ export function createFirstPerson(canvas, camera, { onMode, onAim, interact, acc
       if (document.pointerLockElement === canvas) document.exitPointerLock()
       spawn.copy(camera.position); camera.position.copy(savedPosition); camera.quaternion.copy(savedRotation)
     }
-    camera.fov = value ? 66 : 41; camera.updateProjectionMatrix(); onMode(value)
+    camera.fov = value ? 66 : savedFov; camera.updateProjectionMatrix(); onMode(value)
   }
   canvas.addEventListener("click", () => {
     if (!active) return
