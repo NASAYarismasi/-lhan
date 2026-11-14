@@ -4,7 +4,7 @@
  <meta charset="utf-8">
  <meta name="viewport" content="width=device-width,initial-scale=1">
  <meta name="theme-color" content="#040a10">
- <title>Mars’a İlk Koloni | Jezero Kolonisi</title>
+ <title>Mars’a İlk Koloni | Düz Ova Kolonisi</title>
  <link rel="icon" href="data:,">
  <link rel="stylesheet" href="/src/style.css">
  <link rel="stylesheet" href="/src/colony/colony.css">
@@ -18,7 +18,7 @@
  </section>
  <div class="colony-ui">
   <header class="colony-topbar">
-   <a class="colony-identity" href="./" aria-label="Uçuş görev kontrolüne dön"><span class="colony-mark" aria-hidden="true">M<span>01</span></span><span><b>MARS’A İLK KOLONİ</b><small>YÜZEY GÖREVİ / JEZERO</small></span></a>
+   <a class="colony-identity" href="./" aria-label="Uçuş görev kontrolüne dön"><span class="colony-mark" aria-hidden="true">M<span>01</span></span><span><b>MARS’A İLK KOLONİ</b><small>YÜZEY GÖREVİ / DÜZ OVA</small></span></a>
    <div class="colony-mission"><span class="live-dot" aria-hidden="true"></span><span>Üç astronot · Kalıcı bir başlangıç</span></div>
    <div class="colony-clock"><strong id="sol"></strong><small id="weather"></small></div>
   </header>
@@ -35,6 +35,7 @@
     <button type="button" id="report-toggle" data-drawer="report-drawer" aria-controls="report-drawer" aria-expanded="false"><span>05</span> Görev raporu</button>
     <button type="button" id="realism-toggle" data-drawer="realism-drawer" aria-controls="realism-drawer" aria-expanded="false"><span>ℹ</span> Gerçek veriler</button>
     <button type="button" id="view-toggle" data-drawer="view-drawer" aria-controls="view-drawer" aria-expanded="false"><span>06</span> Görünüm / yardım</button>
+    <button type="button" id="eclss-toggle" data-drawer="eclss-drawer" aria-controls="eclss-drawer" aria-expanded="false"><span>08</span> ECLSS dengesi</button>
    </nav>
    <section id="resources-drawer" class="colony-drawer" aria-labelledby="resources-toggle" hidden>
     <header class="drawer-heading"><h2>Stok ve enerji</h2><button type="button" data-close-drawer aria-label="Kaynakları kapat">×</button></header>
@@ -95,16 +96,30 @@
     <header class="drawer-heading"><h2>ℹ Gerçek veriler</h2><button type="button" data-close-drawer aria-label="Gerçek verileri kapat">×</button></header>
     <div class="drawer-content"><p class="muted">Gerçek ölçümler, yaklaşık referanslar ve oyun kabulleri. Bu notlar koloni kurallarını değiştirmez.</p><div id="realism-notes"></div></div>
    </section>
+   <section id="eclss-drawer" class="colony-drawer" aria-labelledby="eclss-toggle" hidden>
+    <header class="drawer-heading"><h2>ECLSS dengesi</h2><button type="button" data-close-drawer aria-label="ECLSS panelini kapat">×</button></header>
+    <div class="drawer-content">
+     <p class="muted">İhan’ın üç kişilik yaşam desteği hesaplayıcısı. Bağımsız planlama örneğidir; koloni stoklarını değiştirmez. Süre Dünya günüdür.</p>
+     <label>Süre <output id="eclss-days-value"></output><input id="eclss-days" type="range" min="1" max="30" value="10"></label>
+     <label>Su geri kazanımı <output id="eclss-recovery-value"></output><input id="eclss-recovery" type="range" min="0" max="98" value="85"></label>
+     <label class="check"><input id="eclss-electrolysis" type="checkbox" checked> Oksijeni su elektroliziyle üret</label>
+     <dl class="eclss-results"><dt>Gerekli su</dt><dd id="eclss-water"></dd><dt>Geri kazanılan su</dt><dd id="eclss-savedWater"></dd><dt>Yedek oksijen</dt><dd id="eclss-oxygen"></dd><dt>Gıda enerjisi</dt><dd id="eclss-foodKcal"></dd></dl>
+     <div class="group"><h3>Güneş tarlası · 420 panel</h3><label>Örnek üretim koşulu <select id="eclss-weather"><option value="1">Açık · %100</option><option value="0.5">Tozlu · %50</option><option value="0.1">Fırtına · %10</option></select></label><p id="eclss-solar"></p><small>420 kWh/sol üretim ve 413 kWh/sol tüketim İhan’ın örnek tasarım kabulleridir. Oyun enerji birimlerinden bağımsızdır. Elektroliz enerjisi bu basit hesapta modellenmez.</small></div>
+     <p class="unit-note">Kişi / Dünya günü: 0,84 kg O₂ · 3,52 kg su · 3035 kcal. Elektroliz: 1 kg O₂ için 1,125 kg su. <a href="https://ntrs.nasa.gov/citations/20150019662">NASA BVAD referansı</a></p>
+    </div>
+   </section>
    <section id="view-drawer" class="colony-drawer" aria-labelledby="view-toggle" hidden>
     <header class="drawer-heading"><h2>Görünüm ve kontroller</h2><button type="button" data-close-drawer aria-label="Görünümü kapat">×</button></header>
     <div class="drawer-content">
      <div class="mode-row"><button id="view-mode" class="primary" type="button">Astronotun gözünden gez</button><label>Astronot <select id="player" aria-label="Bakış açısı için astronot"></select></label></div>
+     <div class="buttons" aria-label="Düz Ova kameraları"><button type="button" data-ova-view="panorama">Ova panoraması</button><button type="button" data-ova-view="base">Kubbe üssü</button><button type="button" data-ova-view="solar">Güneş tarlası</button><button type="button" data-ova-view="pad">Kurulum alanı</button></div>
+     <p class="muted">Merkez kubbenin önündeki hava kilidine yaklaş ve E’ye bas. İçeride yan tünellerden diğer kubbelere geç; çıkmak için merkez kubbenin kapısına dön.</p>
      <p id="view-help">Modülü seç ve zeminde veya çatıda istediğin noktaya tıkla · Sürükleyerek döndür</p>
      <p class="muted">Sahneye tıkla: fareyi yakala · WASD: yürü · Oklar / fare: bak · E: etkileşim · R: yaşam modülünün çatısına eriş / geri dön · Esc: paneli kapat veya üs planına dön.</p>
      <p class="muted">Alt / Q: kol terminali · L: kafa lambası · [ / ]: yüzey zaman hızı. Kaynak hesabı için “Bir sol ilerlet” kullanılır.</p>
      <details class="file-row"><summary>Ekip karakteri yükle</summary><label>Seçili astronot için GLB <input id="character-file" type="file" accept=".glb,model/gltf-binary"></label><small id="character-status" role="status">Varsayılan astronotlar kullanımda.</small></details>
      <p><small id="nasa-status" role="status">NASA modelleri yükleniyor…</small></p><p><button id="rover" type="button">NASA Perseverance modelini göster</button></p><small id="rover-status" role="status"></small>
-     <footer class="group"><h3>Veri ve model kaynakları</h3><a href="https://pds-geosciences.wustl.edu/missions/mgs/megdr.html">NASA MGS/MOLA arazisi</a> · <a href="https://science.nasa.gov/3d-resources/habitat-demonstration-unit/">HDU · NASA/LaRC</a> · <a href="https://science.nasa.gov/3d-resources/insight-cruise-lander/">InSight · NASA/Brian E. Kumanchik</a> · <a href="https://science.nasa.gov/3d-resources/mars-2020-perseverance-rover/">Perseverance · NASA/JPL</a> · <a href="https://www.nasa.gov/science-research/nasa-plant-researchers-explore-question-of-deep-space-food-crops/">NASA bitki araştırması</a><p>NASA Space Apps 2026 · Sivas</p></footer>
+     <footer class="group"><h3>Veri ve model kaynakları</h3><p>Düz Ova üssü ve düz arazi: İhan · Prosedürel konsept, ölçülmüş Jezero arazisi değildir.</p><a href="https://science.nasa.gov/3d-resources/astronaut/">Astronot · NASA</a> · <a href="https://science.nasa.gov/3d-resources/mars-2020-perseverance-rover/">Perseverance · NASA/JPL</a> · <a href="https://www.nasa.gov/science-research/nasa-plant-researchers-explore-question-of-deep-space-food-crops/">NASA bitki araştırması</a><p>NASA Space Apps 2026 · Sivas</p></footer>
     </div>
    </section>
   </div>

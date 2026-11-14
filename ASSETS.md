@@ -76,3 +76,18 @@ Koloni kuralları, kaynak miktarları, tarım ve atölye değerleri eğitsel oyu
 
 <!-- SYNC: procedural surface provenance; no external imagery added. -->
 `src/colony/scene/crater-terrain.mjs` ve `regolith-detail.mjs`, İhan’ın `kaynak/src/crater-ecosystem.mjs` içindeki prosedürel krater profilleri ve 512² regolit detay üreticisinden uyarlanmıştır. Merkezde 60 m çaplı düz oyun sahası, dışta yassı taşlar ve seyreltilmiş instanced çakıl halısı vardır. Yerel yükseklikler ölçülmüş Jezero DEM’i değildir. Mevcut MOLA tabanlı bölgesel ufuk ve YÜZEY’in Mars24 ortamı korunur; HiRISE ortofotosu veya ikinci gökyüzü/ışık sistemi eklenmedi.
+
+## Düz Ova entegrasyonu (OVA, 2026-11-14)
+
+`src/colony/ova/` içindeki arazi dokuları, üç kubbeli basınçlı üs, tüneller, hava kilidi, iç donanım, haberleşme kulesi ve 42 masalı güneş tarlası **İhan** tarafından üretilen prosedürel konsepttir. Kaynak: `vendor-ihan/MARS-KOLONISI-DUZ-OVA.html`, `NASAYarismasi/-lhan` commit `d6caf78`. Ayrı kaynak kodu bulunmadığından uygulama bölümü kurulu Rolldown/Oxc ile biçimlendirilip paketlenmiş Three.js kodundan ayrılmıştır; Three.js ve yükleyiciler projedeki npm sürümünden alınır. NASA bu konsept üssün tasarımcısı değildir. Uygulama kodunun ekip içi kökeni korunur; NASA varlıklarının koşulları ayrıca geçerlidir.
+
+| Gömülü varlık | Yeniden kullanılan dosya | Kaynak / koşullar |
+|---|---|---|
+| `scene-rover` | `public/models/colony/perseverance.glb` | İhan’ın README kaynağı: [NASA/JPL Mars 2020 Perseverance, NASA 3D Resources](https://science.nasa.gov/3d-resources/mars-2020-perseverance-rover/). NASA medya kullanım koşulları; gömülü GLB ile birebir aynı baytlar, SHA-256 `10db7c03a5e63a5a3b3e7baa6243aa4918ba045fa8ff0a731d0217491adc727f`. |
+| `scene-suit` | `public/models/colony/team-astronaut.glb` | İhan’ın README kaynağı: [NASA Astronaut, NASA 3D Resources](https://science.nasa.gov/3d-resources/astronaut/). NASA medya kullanım koşulları; gömülü GLB ile birebir aynı baytlar, SHA-256 `d18c141410542b935113d1c25a9271d90c40d44015a64295b7b68a30f0ce2820`. |
+
+Gömülü Draco/WASM tekrar dağıtılmadı; mevcut `public/draco/` Apache-2.0 çözücüleri kullanılır. Tekrar çıkarım / karşılaştırma: `node scripts/recover-ova.mjs`; okunabilir ham uygulama ve dosya özeti `output/ova/` altına yazılır, elle entegre edilmiş modüller değiştirilmez.
+
+Düz Ova, yukarıda tarihsel olarak anlatılan MOLA bölgesel ufku / krater ekosisteminin **aktif koloni sahnesindeki yerini alır**; eski NASA HDU, InSight ve Ingenuity sahneye yüklenmez. Eski dosyalar ve bağımsız testleri depoda korunur. Düz Ova gerçek Jezero DEM’i değildir. 620 m düzlüğün çok küçük yükseklik dalgaları, renkleri ve 108 ufuk tepesi kaynaktan korunur; 36.600 taş/çakıl 6.550 instance’a, zemin ağı 320×320’den 96×96’ya indirilir. Güneş tarlası aynı yerleşimle beş instanced draw kullanır. Güneş, gökyüzü, yıldızlar, sis, gün/gece ve kafa lambası ortak `environment.mjs` tarafından yönetilir.
+
+Rover lens adaptation: `src/colony/ova/assets.mjs` disables screen-space transmission on three tiny NASA camera-lens materials and uses translucent glass instead. Meshes, textures, scales and source GLB bytes are unchanged; this removes an extra whole-scene refraction pass on software GL.

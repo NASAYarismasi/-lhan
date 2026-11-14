@@ -122,3 +122,6 @@
  .surface-message { bottom: 10px; padding: 6px 10px; max-width: 145px; font-size: 10px; }
  .surface-message small { display: none; }
 }
+
+/* OVA: independent ECLSS planning readout in the shared drawer system. */
+.eclss-results{display:grid;grid-template-columns:1fr auto;gap:9px 16px;margin:22px 0}.eclss-results dt{color:#aebcbe}.eclss-results dd{margin:0;font-variant-numeric:tabular-nums;color:#f3ddbb}#eclss-drawer output{float:right;color:#f3ddbb}#eclss-drawer input[type=range]{width:100%;margin:14px 0 20px}[data-ova-view][aria-pressed=true]{border-color:#d6aa6c;background:#66503366}

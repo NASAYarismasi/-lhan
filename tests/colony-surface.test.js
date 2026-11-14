@@ -138,4 +138,13 @@ describe('FPS movement and terrain contracts', () => {
     fps.setActive(true); expect(camera.fov).toBe(66);
     fps.setActive(false); expect(camera.fov).toBe(48);
   });
+  it('teleports through the airlock with an explicit heading and keeps the interior floor', () => {
+    const fps=createFirstPerson(canvas,camera,{onMode:()=>{},onAim:()=>{},interact:()=>{},collides:()=>false,groundY:()=>.5});
+    dispose=()=>fps.dispose(); fps.setActive(true);
+    fps.teleport(new T.Vector3(0,2.15,2.45),0,Math.PI/2);
+    const direction=camera.getWorldDirection(new T.Vector3());
+    expect(direction.x).toBeCloseTo(-1,6);
+    fps.update(.5);expect(camera.position.y).toBeCloseTo(2.15,6);
+    expect(camera.position.z).toBeCloseTo(2.45,6);
+  });
 });
