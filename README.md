@@ -54,7 +54,7 @@ npm ci
 npm run dev
 ```
 
-**Geri sayımı başlat** ile T−10'dan kalkışa geçilir. Varsayılan otopilot gerçek fizik çekirdeğini izler. Yörüngeye ulaşınca **B** Mars transferini başlatır; seyirde **.** ile 100000× hız seçilebilir. Mars yakalama otomatik, Mars yörüngesindeki **B** inişi başlatır.
+**Göreve Başla** ile ana menüden T−10 geri sayımına geçilir. Varsayılan otopilot gerçek fizik çekirdeğini izler. Yörüngeye ulaşınca **B** Mars transferini başlatır; seyirde **.** ile 100000× hız seçilebilir. Mars yakalama otomatik, Mars yörüngesindeki **B** inişi başlatır.
 
 | Kontrol | İşlev |
 |---|---|
@@ -66,7 +66,7 @@ npm run dev
 | , / . / T | Zamanı yavaşlat / hızlandır / hızlandır |
 | A, ardından Shift / Ctrl / Z / X | Manuel gaz; artır / azalt / tam / kes |
 | Esc / P | Duraklat, kalite/ses/sıfırlama menüsü |
-| H / Q · M · F | Yardım · sesi kapat/aç · tam ekran |
+| H · Q · M · F | Yardım · kol bilgisayarı · sesi kapat/aç · tam ekran |
 
 Manuel gaz yalnız kalkış ve transfer/yakalama yanışlarında aktiftir. Atmosferde veya motor yanarken en fazla 10× hızlandırma uygulanır. NASA modelleri, gezegenler ve yıldız haritası yereldir; demo internet gerektirmez.
 

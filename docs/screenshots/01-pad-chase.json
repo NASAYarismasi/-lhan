@@ -1,5 +1,8 @@
 {
   "ready": true,
+  "titleScreen": false,
+  "watch": false,
+  "about": false,
   "phase": "PRELAUNCH",
   "camera": "Takip",
   "cameraIndex": 0,
@@ -11,7 +14,7 @@
   "warp": 1,
   "countdown": {
     "time": -10,
-    "running": false,
+    "running": true,
     "complete": false,
     "events": []
   },
@@ -71,6 +74,7 @@
       "food": 595.2
     },
     "warp": 1,
+    "cabinPower": true,
     "failureReason": null,
     "transitPropellant": 120000,
     "burnRemaining": 0,
@@ -145,7 +149,7 @@
     "lasAttached": true,
     "countdown": {
       "time": -10,
-      "running": false,
+      "running": true,
       "complete": false,
       "events": []
     },
@@ -165,13 +169,14 @@
     "trajectory": [],
     "exhaust": []
   },
+  "renderedMissionTime": 0,
   "backlogSeconds": 0,
   "performance": {
-    "fps": 60,
+    "fps": 6,
     "drawCalls": 56,
-    "triangles": 95940,
+    "triangles": 226628,
     "geometries": 25,
-    "textures": 22
+    "textures": 24
   },
   "coordinates": "SI metres; Y-up; floating origin at vehicle, radial tangent basis; maps use scaled distances"
 }

@@ -25,6 +25,7 @@ export function createMission({ crewCount = 3, supplyDuration = 320 * DAY, suppl
   const ascent = createAscent();
   const state = {
     phase: 'PRELAUNCH', time: 0, phaseTime: 0, warp: 1, failureReason: null,
+    cabinPower: true, // GAME ASSUMPTION: powered cabin bus; no electrical load model.
     crew: Array.from({ length: crewCount }, (_, i) => ({ id: `astronaut-${i + 1}`, health: 100 })),
     supplies: supplies ? { ...supplies } : Object.fromEntries(Object.entries(CREW_RATES).map(([k, v]) => [k, v * crewCount * supplyDuration / DAY])),
     // GAME ASSUMPTION: README colony inventory; terrain changes surface energy only in this foundation.
@@ -135,7 +136,7 @@ export function createMission({ crewCount = 3, supplyDuration = 320 * DAY, suppl
       physics = { altitude: Math.hypot(...p) - mu.radius, velocity: Math.hypot(...v), verticalSpeed: p.reduce((sum, x, i) => sum + x * v[i], 0) / Math.hypot(...p), inAtmosphere: false };
     }
     return { ...physics, phase: state.phase, missionTime: state.time, phaseTime: state.phaseTime,
-      crew: state.crew.map(c => ({ ...c })), supplies: { ...state.supplies }, warp: state.warp,
+      crew: state.crew.map(c => ({ ...c })), supplies: { ...state.supplies }, warp: state.warp, cabinPower: state.cabinPower,
       failureReason: state.failureReason, transitPropellant: state.transit.propellant,
       burnRemaining: state.burnRemaining, burnDelivered: state.burnDelivered,
       engineFiring: state.phase === 'ASCENT' ? Boolean(physics.engineFiring) : ['TMI_BURN', 'MOI_BURN'].includes(state.phase) ? state.throttle > 0 : state.phase === 'EDL' && Boolean(physics.engineFiring),

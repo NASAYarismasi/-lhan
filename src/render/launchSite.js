@@ -9,7 +9,7 @@ export function createLaunchSite() {
   concrete.map = noiseTexture('#8f9188');
   const groundMat = material(0x64705b, .98, 0); groundMat.map = noiseTexture('#777965');
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(52000,52000), groundMat); ground.rotation.x = -Math.PI/2; ground.position.y = -14.2; ground.receiveShadow = true; group.add(ground);
-  const ocean = new THREE.Mesh(new THREE.PlaneGeometry(30000,70000), material(0x30596b,.3,.35)); ocean.rotation.x=-Math.PI/2; ocean.position.set(19000,-14,0); group.add(ocean);
+  const ocean = new THREE.Mesh(new THREE.PlaneGeometry(30000,70000), material(0x246b96,.32,.12)); ocean.rotation.x=-Math.PI/2; ocean.position.set(16000,-14,0); group.add(ocean);
   box(group,[340,1,260],concrete,[0,-13.5,0]);
   box(group,[45,7,180],dark,[0,-10,-36]); box(group,[14,.3,180],material(0x171b1c),[0,-6.3,-36]);
   for (const x of [-30,30]) box(group,[35,7,85],concrete,[x,-10,0]);
@@ -33,7 +33,8 @@ export function createLaunchSite() {
     for(let y=0;y<127;y+=8) { beam(mast,[-3*(1-y/160),y,-3],[3*(1-(y+8)/160),y+8,-3],.12,steel); }
     cylinder(mast,.15,.2,20,rail,[0,140,0],8);
   }
-  beam(group,[-145,136,100],[0,136,-180],.045,rail); beam(group,[145,136,100],[0,136,-180],.045,rail);
+  // Omit subpixel overhead wires: their thin triangles alias into dashed rows
+  // in the long-lens ground camera. Lightning protection masts remain visible.
   // Cable ducts, tanks, service buildings and crawlerway add scale without expensive assets.
   box(group,[42,.12,1900],material(0x898c82),[-120,-13,930]);
   for(let i=0;i<8;i++) {

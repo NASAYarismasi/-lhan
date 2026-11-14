@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-import { canvasTexture, seeded } from './primitives.js';
+import { canvasTexture, noiseTexture, seeded } from './primitives.js';
 import { disposeScene } from './dispose.js';
 
 /** Owns cached resources; scenes clone materials before changing them. */
@@ -10,17 +10,17 @@ export async function loadAssets(onProgress = () => {}) {
   const loader = new GLTFLoader().setDRACOLoader(draco), textureLoader = new THREE.TextureLoader();
   const assets = { models: {}, textures: {}, failures: [] }; let done = 0;
   await Promise.allSettled([
-    ...['sls', 'orion', 'astronaut'].map(async id => {
+    ...['sls', 'orion', 'astronaut-seated'].map(async id => {
       try { assets.models[id] = (await loader.loadAsync(`/assets/${id}.glb`)).scene; }
       catch { assets.failures.push(id); }
-      onProgress(++done, 7);
+      onProgress(++done, 8);
     }),
-    ...['earth-day', 'earth-night', 'mars-color', 'stars'].map(async id => {
+    ...['earth-day', 'earth-night', 'mars-color', 'stars', 'earth-florida-atlantic'].map(async id => {
       try {
         const t = await textureLoader.loadAsync(`/textures/${id}.jpg`);
         t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; assets.textures[id] = t;
       } catch { assets.failures.push(id); }
-      onProgress(++done, 7);
+      onProgress(++done, 8);
     })
   ]);
   const rand = seeded(180);
@@ -34,14 +34,19 @@ export async function loadAssets(onProgress = () => {}) {
       }
     });
   }
-  assets.textures.clouds = canvasTexture(1024, 512, (c, w, h) => {
-    c.fillStyle = '#000'; c.fillRect(0, 0, w, h);
-    for (let i = 0; i < 1400; i++) {
-      const x = rand() * w, y = rand() * h, r = 4 + rand() * 38;
-      const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(255,255,255,${rand() * .38})`); g.addColorStop(1, 'transparent');
-      c.save(); c.translate(x, y); c.scale(1, .35); c.translate(-x, -y); c.fillStyle = g; c.fillRect(x-r,y-r,2*r,2*r); c.restore();
-    }
+  if(!assets.textures['earth-florida-atlantic'])assets.textures['earth-florida-atlantic']=assets.textures['earth-day'];
+  assets.textures.clouds = canvasTexture(2048, 1024, (c, w, h) => {
+    const grid=Float32Array.from({length:2048},()=>rand()),pixels=c.createImageData(w,h);
+    const noise=(x,y)=>{const ix=Math.floor(x),iy=Math.floor(y),sx=x-ix,sy=y-iy,u=sx*sx*(3-2*sx),v=sy*sy*(3-2*sy);const a=grid[(iy&31)*64+(ix&63)],b=grid[(iy&31)*64+((ix+1)&63)],d=grid[((iy+1)&31)*64+(ix&63)],e=grid[((iy+1)&31)*64+((ix+1)&63)];return (a+(b-a)*u)*(1-v)+(d+(e-d)*u)*v;};
+    // Seeded multiscale weather-like filaments, not blurred circular stamps.
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const n=noise(x/85,y/24)*.5+noise(x/31,y/15)*.28+noise(x/11,y/7)*.15+noise(x/4,y/3)*.07;
+      const alpha=Math.round(Math.min(1,Math.max(0,(n-.54)*5))*255),i=(y*w+x)*4;
+      pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=alpha;pixels.data[i+3]=255;
+    }c.putImageData(pixels,0,0);
   }, false);
+  assets.textures.earthDetail=noiseTexture('#858585',710);
+  assets.textures.earthDetail.colorSpace=THREE.NoColorSpace;
   for (const t of Object.values(assets.textures)) t.userData.shared = true;
   for (const model of Object.values(assets.models)) model.traverse(m=>{
     if(m.geometry)m.geometry.userData.shared=true;

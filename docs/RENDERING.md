@@ -17,7 +17,7 @@
 2. **1–6** doğrudan kamera seçer; **C** sıradaki kamerayı seçer. Takip kamerası fare sürükleme/tekerlek ile kontrol edilir. Kabin kameraları üç mürettebatı, canlı CanvasTexture ekranlarını ve aynı dış gezegen sahnesini gösterir.
 3. **, / .** hız azaltır/artırır, **T** hız artırır. 10× üstü motor kapalı/atmosfer dışı koşuluna tabidir. **B** Dünya park yörüngesinde TMI, Mars yörüngesinde deorbit başlatır. Varış/MOI otomatiktir.
 4. **A** yalnızca kalkış/TMI/MOI'de manuel gaz kolunu açar. **Shift/Ctrl** artırır/azaltır, **Z/X** tam/kes. SRB ve EDL gazı kullanıcı kontrolünde değildir. Varsayılan kılavuzlama otopilottur.
-5. **Esc/P** duraklatır; menüden kalite, uyarlama, ses ve sıfırlama seçilir. **H/Q** yardım, **M** ses, **F** tam ekran.
+5. **Esc/P** duraklatır; menüden kalite, uyarlama, ses ve sıfırlama seçilir. **H** yardım, **Q** kol bilgisayarı, **M** ses, **F** tam ekran.
 
 `window.advanceTime(ms)` aynı fizik adımlarını tamamlar ve gerçek zamanlı fizik akışını test süresince durdurur. Kamera/çizim RAF'ı çalışır. `window.missionControl` yalnızca normal kullanıcı komutlarını sunar; faz/konum ayarlayıcısı yoktur. `render_game_to_text()` SI telemetri, kamera, geri sayım, hız, kalite ve GPU sayaçları verir.
 
@@ -35,7 +35,20 @@ WebAudio gürültü kaynakları rumble/crackle üretir. Yer kamerası geçmiş i
 
 Statik rampa kafesleri malzemeye göre birleştirilir; scrub/kayalar instancing kullanır. Parçacık sayısı sınırlıdır. Düşük/Orta/Yüksek piksel oranı tavanları 0,8/1,15/1,6; düşük ayarda bloom/gölge kapalıdır. Otomatik kalite uzun süreli yavaşlamada çözünürlüğü düşürür. **60 FPS hedeftir; gerçek orta sınıf dizüstünde ölçüm yapılmadı.** SwiftShader doğrulaması görsel/doğruluk içindir.
 
-Bulut haritası, LC-39B ayrıntıları, Mars lander ve yerel Mars arazisi prosedürel/temsili. Gerçek Mars DEM/normal haritası yoktur. Kabin ölçüleri ve astronotların verteks tabanlı oturma pozu yaklaşık, rig animasyonu değildir. Atmosfer tek saçılma benzeri rim/yoğunluk yaklaşımıdır; hacimsel bulut/soft-depth parçacık çözümü değildir. TMI/MOI'nin temel modeldeki darbeli manevra yaklaşımı devam eder; ayrı ayrıntılı NTR dış modeli yoktur.
+Bulut haritası, LC-39B ayrıntıları, Mars lander ve yerel Mars arazisi prosedürel/temsili. Gerçek Mars DEM/normal haritası yoktur. Kabin ölçüleri ve Blender'da işlenen sabit oturma pozu yaklaşık, rig animasyonu değildir. Atmosfer tek saçılma benzeri rim/yoğunluk yaklaşımıdır; hacimsel bulut/soft-depth parçacık çözümü değildir. TMI/MOI'nin temel modeldeki darbeli manevra yaklaşımı devam eder; ayrı ayrıntılı NTR dış modeli yoktur.
+
+## Task 3 — Görsel son düzenleme
+
+- Açılışta yavaş hareket eden rampa kamerası üzerinde ana menü, kontroller ve kaynak/ekip penceresi bulunur. Göreve Başla T−10 geri sayımını açar; sıfırlama başlık ekranına döner.
+- Kabin artık Blender'da oturtulmuş NASA astronot türevini kullanır. Kamera 2 önden çapraz bakarak yaslanmış gövdeyi, bükülü dizleri, aşağıdaki kolları, minder/kemer/ayak dayanaklarını gösterir.
+- Kademe şeması `attached` durumlarından SRB → ana → ICPS/Orion ayrılmalarını, ardından transit ve iniş aracını izler. Negatif apsis irtifaları çizgi ve “yörünge altı”, açık yörüngenin apoapsisi “açık yörünge” olarak gösterilir.
+- Sis azaltıldı; mavi sabah göğü, görünür Atlantik ufku ve egzozun aydınlattığı kule/pad/duman güçlendirildi. Kesikli ekran çizgisi debug göstergesi değil, alt piksel kalınlığındaki yıldırım koruma kablolarının aliasing'iydi; kablolar kaldırıldı, direkler korundu.
+- Dünya küresi daha sık üçgenlenir; Florida–Atlantik yüksek çözünürlüklü NASA bölgesi doğru boylama yerleştirilip alçak irtifada harmanlanır. Tiled prosedürel detay/normal katkısı, 10,5 km yüksek bulut kabuğunun paralaksı ve sim saatine bağlı yavaş bulut sürüklenmesi eklenir. Bulutlar gerçek hava verisi değildir.
+- Mars aracı geniş, çok yüzlü insanlı iniş konseptidir. Girişte 15 m aeroshell, SRP olayından sonra kalıcı açılan dört ayak, merdiven ve dört açık motor çanı görünür. Motor plume ve son 50 m tozu korunur. Aeroshell geçişi görsel konfigürasyondur; ayrılmış kalkan fiziği eklenmedi.
+- Harita tüm transfer elipsini kesikli, uçulan yayı düz çizer. Varış halkası ve ekran uzayında çakışma denetimli etiketler bulunur. Deterministik test adımları, analitik seyir sıçraması sonrasında güncel snapshot'ı çizer; normal RAF enterpolasyonu korunur.
+- Q, sağ altta erzak günleri, görev saati/fazı, kabin güç durumu ve sonraki olay için kol bilgisayarını açar. Erzak günleri sim kg / (kişi başı günlük tüketim × mürettebat) hesabıdır. Kabin gücü sim telemetrisindeki açık/kapalı veri yoludur; elektrik tüketimi/batarya modeli değildir.
+
+Uçuş sabitleri, kuvvetler, görev geçişleri ve ortak iniş yükü değişmedi. Türkçe zaman çizelgesi ve sistem etiketleri İngilizce olay kodlarının yerini aldı.
 
 ## Doğrulama
 

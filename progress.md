@@ -1,5 +1,17 @@
 Original prompt: tamam hadi başlayalım. gözle görülür bişey oluşsun. geliştirelim
 
+## Task 3 — Reviewer polish pass (2026-11-14)
+
+- Request: fix eleven visual/UI issues, regenerate and critically inspect every render-QA PNG; no physics constant changes or commits.
+- Baked a permanent reclined seated NASA suit derivative with Blender CLI; retained the original GLB and reproducible `scripts/pose-crew.py`. Camera 2 now sees all three faces, bent knees, lowered arms, fitted seat backs, restraints and footrests.
+- Stage silhouette follows actual attached SRB/core/LAS state, then upper stack, transit and lander. Apsis UI handles suborbital/open trajectories without changing sim values. Timeline/system labels are Turkish.
+- Clearer Florida sky/fog, stronger engine/pad/smoke lighting and visible Atlantic horizon. Identified dashed row as subpixel lightning-protection wire triangles; removed those wires. Corrected upper-stack origin/nozzle offset after core separation.
+- Added a 4096² NASA BMNG Florida/Atlantic region from the public-domain 500 m B1 tile (download/crop script and ASSETS attribution), fixed launch-longitude alignment, increased sphere tessellation and added near-surface procedural detail/normal contribution. Clouds use seeded multiscale texture at 10.5 km with parallax/drift.
+- Distinct faceted human Mars lander with entry aeroshell, four exposed bell nozzles, persistent SRP-triggered gear, hatch/ladder, existing plumes and dust.
+- Cruise map: full dashed transfer ellipse, solid completed arc, arrival ring, screen-space label collision checks and legend. Fixed deterministic rendering at alpha=1 so analytical coast jumps display current ship/planet positions; RAF interpolation remains.
+- Added cinematic title/start menu, controls, about/sources/team screen and Q wrist device. Wrist days use current supply kg / actual crew consumption; power comes from the new sim telemetry boolean (explicit game assumption, no electrical load model). Landing payload/flight dynamics/constants remain unchanged.
+- Expanded QA with title/about/help, Q early/late resource displays, both separations, departure conjunction and rendered-time assertions. First full browser pass passed with no errors; visual inspection prompted seat/camera, wire, map-time and Earth corrections. Latest 42 tests and production build pass; final production-preview QA and per-image review are underway.
+
 ## Task 2 — Rendering rebuild (2026-11-14)
 
 - Requested professional sim-driven renderer, LC-39B, planetary textures, staging/VFX, six cameras, cabin, Turkish HUD, WebAudio, quality settings and eight verified screenshots; no commits.

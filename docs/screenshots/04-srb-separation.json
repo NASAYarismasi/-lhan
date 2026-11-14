@@ -1,5 +1,8 @@
 {
   "ready": true,
+  "titleScreen": false,
+  "watch": false,
+  "about": false,
   "phase": "ASCENT",
   "camera": "Takip",
   "cameraIndex": 0,
@@ -80,6 +83,7 @@
       "food": 595.1972272220157
     },
     "warp": 1,
+    "cabinPower": true,
     "failureReason": null,
     "transitPropellant": 120000,
     "burnRemaining": 0,
@@ -6455,13 +6459,14 @@
       }
     ]
   },
+  "renderedMissionTime": 128.79999999999208,
   "backlogSeconds": 0.019999999995402615,
   "performance": {
-    "fps": 13,
+    "fps": 11,
     "drawCalls": 34,
-    "triangles": 51780,
-    "geometries": 96,
-    "textures": 26
+    "triangles": 235492,
+    "geometries": 112,
+    "textures": 28
   },
   "coordinates": "SI metres; Y-up; floating origin at vehicle, radial tangent basis; maps use scaled distances"
 }

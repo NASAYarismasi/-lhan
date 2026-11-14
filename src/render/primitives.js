@@ -34,8 +34,9 @@ export function noiseTexture(color, seed = 7) {
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.repeat.set(20, 20); return texture;
 }
 export function label(text, color = '#d4eaff', width = 320) {
+  width=Math.ceil(text.length*16+32);
   const texture = canvasTexture(width, 64, c => {
-    c.font = '500 26px monospace'; c.fillStyle = color; c.fillText(text, 8, 42);
+    c.font = '500 26px monospace'; c.fillStyle = color;c.textAlign='center';c.fillText(text, width/2, 42);
   });
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
   sprite.scale.set(width / 20, 3.2, 1); return sprite;

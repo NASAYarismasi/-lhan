@@ -88,6 +88,10 @@ SRP, h<15 km ve h<1,4·dstop+2 km koşulunda başlar; dstop = vrel²/[2(Fmax/m�
 
 ## Doğrulama
 
+### Task 3 arayüz eki
+
+Uçuş sabitleri, tüketim oranları, kuvvet denklemleri ve iniş verisi sözleşmesi korunmuştur. `cabinPower` sim durumunda/telemetride açık-kapalı kabin veri yoludur (oyun varsayımı, başlangıçta açık); güç yükü, kWh veya batarya ömrü hesaplanmaz. Kol bilgisayarı kalan erzak günlerini mevcut kg ve mevcut mürettebat tüketiminden hesaplar. Negatif periapsis irtifası arayüzde “yörünge altı” diye işaretlenir; sim değeri değiştirilmez. Açık yörüngede sonlu apoapsis gösterilmez.
+
 ### Task 2 görsel katman eki
 
 Görsel yenilemede uçuş kuvvetleri, görev geçişleri ve iniş JSON'u değiştirilmedi. Render için `pressure`, `density`, `thrust` ve EDL'de anlık `heatFlux` telemetriye eklendi. EDL `acceleration` alanı son motor komutunu da içeren toplam yerçekimi dışı ivmeyi bildirir; SRP itkisinin g göstergesine katıldığı ayrı testle doğrulanır.

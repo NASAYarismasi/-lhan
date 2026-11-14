@@ -1,5 +1,8 @@
 {
   "ready": true,
+  "titleScreen": false,
+  "watch": false,
+  "about": false,
   "phase": "ASCENT",
   "camera": "Yer takibi",
   "cameraIndex": 2,
@@ -80,6 +83,7 @@
       "food": 595.199827777765
     },
     "warp": 1,
+    "cabinPower": true,
     "failureReason": null,
     "transitPropellant": 120000,
     "burnRemaining": 0,
@@ -1062,13 +1066,14 @@
       }
     ]
   },
+  "renderedMissionTime": 7.999999999999917,
   "backlogSeconds": 2.187625081084832e-13,
   "performance": {
-    "fps": 15,
-    "drawCalls": 60,
-    "triangles": 80312,
-    "geometries": 91,
-    "textures": 25
+    "fps": 13,
+    "drawCalls": 69,
+    "triangles": 227000,
+    "geometries": 107,
+    "textures": 27
   },
   "coordinates": "SI metres; Y-up; floating origin at vehicle, radial tangent basis; maps use scaled distances"
 }

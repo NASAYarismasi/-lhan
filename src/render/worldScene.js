@@ -34,7 +34,7 @@ export function createWorldScene() {
       }else{earth.group.scale.setScalar(1);mars.group.scale.setScalar(1);}
       pad.update(s);terrain.update(s);vehicle.update(s,onboard,ctx.cameras.camera);cabin.update(s,onboard);effects.setQuality(ctx.quality==='Düşük'?.45:ctx.quality==='Orta'?.7:1);effects.update(s,ctx.height);
       sun.castShadow=s.altitude<1500;ambient.intensity=s.phase==='CRUISE'?.18:s.mars?.85:Math.max(.18,1.2*Math.exp(-(s.altitude??0)/30000));
-      if(s.altitude<5000) {scene.fog=new THREE.FogExp2(s.mars?0x9d7453:0x8ca8b5,s.mars?.000022:.000008*Math.exp(-s.altitude/5000));}else scene.fog=null;
+      if(s.altitude<5000) {scene.fog=new THREE.FogExp2(s.mars?0x9d7453:0x5587b5,s.mars?.000022:.000002*Math.exp(-s.altitude/5000));}else scene.fog=null;
       for(const b of s.debris){let model=detached.get(b.id);if(!model){model=vehicle.makeDebris(b.id);scene.add(model);detached.set(b.id,model);
         const flash=new THREE.Group();for(const y of [-20,20]){const flare=new THREE.Mesh(new THREE.SphereGeometry(.6,12,8),new THREE.MeshBasicMaterial({color:new THREE.Color(6,4,2),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));flare.position.set(b.id==='srbLeft'?-2:2,y,0);flash.add(flare);}model.add(flash);model.userData.flash=flash;
       }

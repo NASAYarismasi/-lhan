@@ -33,9 +33,9 @@ export function createEffects(scene) {
   function jet(type,pos) {const m=plume(type==='srb'?0xff9d3a:type==='retro'?0xffb778:0x637fff,type==='rs25'||type==='icps');m.position.fromArray(pos);rig.add(m);jets.push({type,m});}
   for(const x of [-6.4,6.4])jet('srb',[x,1,0]);
   for(let i=0;i<4;i++){const a=i*Math.PI/2+Math.PI/4;jet('rs25',[Math.cos(a)*2,0,Math.sin(a)*2]);}
-  jet('icps',[0,-.8,0]);jet('transit',[0,-3,0]);
+  jet('icps',[0,66,0]);jet('transit',[0,-3,0]);
   for(let i=0;i<4;i++){const a=i*Math.PI/2;jet('retro',[Math.cos(a)*4.2,1.5,Math.sin(a)*4.2]);}
-  const engineLight=new THREE.PointLight(0xffad57,0,230,2);engineLight.position.set(0,-3,0);scene.add(engineLight);
+  const engineLight=new THREE.PointLight(0xffad57,0,400,2);engineLight.position.set(0,-3,0);scene.add(engineLight);
   const max=2200,positions=new Float32Array(max*3),sizes=new Float32Array(max),colors=new Float32Array(max*4),particles=[],random=seeded(90);
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));geometry.setAttribute('size',new THREE.BufferAttribute(sizes,1));geometry.setAttribute('color',new THREE.BufferAttribute(colors,4));
   const smoke=new THREE.Points(geometry,new THREE.ShaderMaterial({transparent:true,depthWrite:false,vertexColors:false,
@@ -78,7 +78,7 @@ export function createEffects(scene) {
   return {setQuality(v){quality=v;}, update(s,height=900){
     const clock=s.missionTime+(s.phase==='PRELAUNCH'?s.countdown.time:0);
     const dt=lastTime===null?0:Math.max(0,clock-lastTime);lastTime=clock;
-    rig.rotation.z=s.attitude+s.theta;rig.position.y=['PRELAUNCH','ASCENT'].includes(s.phase)&&!s.stages.find(p=>p.id==='core').attached?-70:0;
+    rig.rotation.z=s.attitude+s.theta;rig.position.set(0,['PRELAUNCH','ASCENT'].includes(s.phase)&&!s.stages.find(p=>p.id==='core').attached?-70:0,0).applyAxisAngle(new THREE.Vector3(0,0,1),rig.rotation.z);
     const launch=['PRELAUNCH','ASCENT'].includes(s.phase),solid=launch&&s.phase==='ASCENT'&&s.stages.find(p=>p.id==='srb').attached;
     const core=launch&&s.stages.find(p=>p.id==='core').attached&&(s.engineFiring&&s.throttle>0||s.countdown.running&&s.countdown.time>=-6.5);
     const pressure=Math.max(0,Math.min(1,s.pressure/P0)),expand=Math.min(4,Math.pow(P0/Math.max(10,s.pressure),.16));
@@ -91,7 +91,7 @@ export function createEffects(scene) {
       const length=type==='srb'?70:type==='rs25'?27:type==='retro'?15:30;
       m.scale.set(radius*expand,length*(.65+power*.35),radius*expand);m.material.uniforms.time.value=s.missionTime+(s.phase==='PRELAUNCH'?s.countdown.time:0);m.material.uniforms.power.value=power;m.material.uniforms.pressure.value=pressure;
     }
-    engineLight.intensity=(solid?14000:core?7000:s.phase==='EDL'&&s.engineFiring?9000*s.throttle:0)*(.92+.08*Math.sin(s.missionTime*103));
+    engineLight.intensity=(solid?90000:core?45000:s.phase==='EDL'&&s.engineFiring?18000*s.throttle:0)*(.92+.08*Math.sin(s.missionTime*103));
     cone.material.opacity=launch?Math.max(0,1-Math.abs((s.mach??0)-1)/.13)*Math.min(1,s.density/.15)*.22:0;
     plasma.visible=s.phase==='EDL'&&(s.heatFlux??0)>2000;plasma.material.uniforms.heat.value=Math.min(1.6,(s.heatFlux??0)/28000);plasma.material.uniforms.time.value=s.missionTime;plasma.rotation.z=!s.engineFiring?Math.atan2(Math.sqrt(Math.max(0,s.surfaceVelocity**2-s.verticalSpeed**2)),-s.verticalSpeed):0;
     plasma.position.set(0,2,0).applyAxisAngle(new THREE.Vector3(0,0,1),plasma.rotation.z);
@@ -120,7 +120,7 @@ export function createEffects(scene) {
       const dx=p.p[0]+p.vx*age-s.position[0],dy=p.p[1]+Math.min(60,age*1.4)-s.position[1];
       positions[n*3]=dx*c-dy*sn;positions[n*3+1]=dx*sn+dy*c;positions[n*3+2]=p.p[2]+p.vz*age;
       sizes[n]=p.kind==='water'?1+age:7+age*(p.kind==='ground'?5:2.4);
-      const shade=.42+p.seed*.22;colors.set(p.kind==='dust'?[.47,.28,.14,(1-age/life)*.35]:p.kind==='water'?[.8,.88,.9,(1-age/life)*.25]:[shade+.08,shade+.07,shade+.04,(1-age/life)*.43],n*4);n++;
+      const shade=.42+p.seed*.22,glow=Math.max(0,1-age/5)*(p.kind==='ground'?1.2:.5);colors.set(p.kind==='dust'?[.47,.28,.14,(1-age/life)*.35]:p.kind==='water'?[.8,.88,.9,(1-age/life)*.25]:[shade+.08+glow,shade+.07+glow*.45,shade+.04,(1-age/life)*.43],n*4);n++;
     }
     geometry.setDrawRange(0,n);geometry.attributes.position.needsUpdate=true;geometry.attributes.size.needsUpdate=true;geometry.attributes.color.needsUpdate=true;smoke.material.uniforms.pixelScale.value=height;
   }};
