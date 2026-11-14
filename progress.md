@@ -4,3 +4,4 @@ Original prompt: tamam hadi başlayalım. gözle görülür bişey oluşsun. gel
 - Sırada Mars inişi, ortak iniş verisi ve koloni kaynakları.
 
 - Playwright ile GLB yükleme, kalkış ve transfer geçişi kontrol edildi. NASA astronot modeli yerel Draco çözücüsü ile yükleniyor.
+- Birinci şahıs kamera, WASD, klavyeyle bakış, mesafeye bağlı E etkileşimi, kabin güç görevi ve Q ile kol bilgisayarı eklendi. Playwright yürüyüş, panel mesafesi, kalkış, güç ve sıfırlamayı doğruladı.

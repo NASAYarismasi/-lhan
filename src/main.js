@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
 import './style.css';
 
 const get = id => document.getElementById(id);
@@ -10,9 +10,9 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 viewport.prepend(renderer.domElement);
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(42, 1, .1, 1800);
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
+const camera = new THREE.PerspectiveCamera(70, 1, .04, 1800);
+scene.add(camera);
+camera.rotation.order = 'YXZ';
 const light = new THREE.DirectionalLight(0xfff1de, 3.1);
 light.position.set(5, 10, 8);
 scene.add(light, new THREE.HemisphereLight(0xe5f6ff, 0x726658, 2.5));
@@ -44,6 +44,27 @@ for (const x of [-2, 0, 2]) {
   box(cabin, [1.08, .52, .07], [x, 2.35, -2.39], 0x142c36);
 }
 
+const launchPanel = box(pad, [.85, 1.25, .55], [0, 2.625, 19], 0x243c40);
+const cabinPanel = box(cabin, [.75, 1.05, .36], [0, .435, .65], 0x243c40);
+const wrist = box(camera, [.2, .14, .1], [.25, -.21, -.48], 0x293c3a);
+box(wrist, [.16, .10, .01], [0, .076, .012], 0x9be980).material.emissive.set(0x5aa63a);
+wrist.rotation.x = -.6;
+wrist.visible = false;
+function indicator(parent, position) {
+  const mesh = box(parent, [.58, .27, .025], position, 0xa9ed62);
+  mesh.material.emissive.set(0x558f37);
+  return mesh;
+}
+indicator(launchPanel, [0, .34, .29]);
+const powerLamp = indicator(cabinPanel, [0, .34, .19]);
+box(cabin, [.18, 2.65, 4.8], [-3.5, 1.23, -.1], 0x394d57);
+box(cabin, [.18, 2.65, 4.8], [3.5, 1.23, -.1], 0x394d57);
+box(cabin, [7, .14, 4.8], [0, 2.5, -.1], 0x34464d);
+box(cabin, [7, 2.64, .16], [0, 1.23, 2.36], 0x394d57);
+for (const x of [-2.35, 0, 2.35]) {
+  box(cabin, [.95, .065, .14], [x, 2.39, .5], 0xaaccaa).material.emissive.set(0x8ecb9e);
+}
+
 function fit(model, height) {
   const bounds = new THREE.Box3().setFromObject(model);
   const pivot = new THREE.Group();
@@ -57,7 +78,9 @@ let mode = 'ready';
 let ready = false;
 let elapsed = 0;
 let watchOpen = false;
-let wrist;
+let powerRestored = false;
+const held = new Set();
+let active = false;
 const status = {
   ready: 'Roket kalkışa hazır.',
   launch: 'Roket rampadan ayrılıyor.',
@@ -72,15 +95,15 @@ function setView(next) {
   cabin.visible = inside;
   scene.background = new THREE.Color(inside ? 0x101b2a : 0x91aeb8);
   scene.fog = inside ? null : new THREE.Fog(0x91aeb8, 250, 650);
-  controls.minDistance = inside ? 1.5 : 50;
-  controls.maxDistance = inside ? 11 : 290;
-  camera.position.set(...(inside ? [2.15, 2.5, 6.5] : [112, 65, 158]));
-  controls.target.set(...(inside ? [0, 1.1, -.2] : [-5, 47, 0]));
+  camera.position.set(...(inside ? [0, 1.53, 2.04] : [0, 3.66, 24.2]));
+  camera.rotation.set(inside ? -.15 : -.04, 0, 0);
+  powerRestored = false;
+  powerLamp.material.emissive.set(0xa82b12);
   rocketRig.position.y = 0;
   get('label').textContent = inside ? 'TRANSFER / MÜRETTEBAT KABİNİ' : 'DÜNYA / FIRLATMA RAMPASI';
   get('status').textContent = status[mode];
-  get('start-btn').textContent = inside ? 'Görevi sıfırla' : 'Kalkışı başlat';
-  get('start-btn').disabled = !ready || mode === 'launch';
+  get('reset-btn').hidden = !inside;
+  
 }
 
 function setWatch(open) {
@@ -88,31 +111,124 @@ function setWatch(open) {
   get('watch').hidden = !open;
   get('watch-btn').textContent = open ? 'Kol bilgisayarını kapat' : 'Kol bilgisayarını aç';
   get('watch-btn').setAttribute('aria-expanded', String(open));
-  if (wrist) wrist.scale.setScalar(open ? 1.3 : 1);
+  wrist.visible = open;
+}
+
+function nearPanel() {
+  const panel = mode === 'ready' ? launchPanel : cabinPanel;
+  return Math.hypot(camera.position.x - panel.position.x, camera.position.z - panel.position.z) <= (mode === 'ready' ? 2.1 : 1.05);
+}
+
+function interact() {
+  if (!active || !nearPanel()) return;
+  if (mode === 'ready') {
+    elapsed = 0;
+    setView('launch');
+  } else if (mode === 'transfer' && !powerRestored) {
+    powerRestored = true;
+    powerLamp.material.emissive.set(0x558f37);
+    get('status').textContent = 'Kabin gücü geri geldi. Görev bilgisayarını kontrol et.';
+  }
+}
+
+function move(dt) {
+  const inside = mode === 'transfer';
+  const horizontal = Number(held.has('KeyD')) - Number(held.has('KeyA'));
+  const forward = Number(held.has('KeyW')) - Number(held.has('KeyS'));
+  const turn = Number(held.has('ArrowLeft')) - Number(held.has('ArrowRight'));
+  const pitch = Number(held.has('ArrowUp')) - Number(held.has('ArrowDown'));
+  look(turn * dt * 1.7, pitch * dt * 1.35);
+  if (!(horizontal || forward)) return;
+  const speed = inside ? 2.2 : held.has('ShiftLeft') ? 8 : 4.5;
+  const distance = speed * dt / Math.hypot(horizontal, forward);
+  const yaw = camera.rotation.y;
+  const x = camera.position.x + (Math.cos(yaw) * horizontal - Math.sin(yaw) * forward) * distance;
+  const z = camera.position.z + (-Math.sin(yaw) * horizontal - Math.cos(yaw) * forward) * distance;
+  const blockers = inside
+    ? [{ x: 0, z: .65, width: .6, depth: .4 }]
+    : [{ x: 0, z: 0, width: 10, depth: 10 }, { x: 0, z: 19, width: .68, depth: .52 }];
+  const collides = (nx, nz) => blockers.some(obstacle =>
+    Math.abs(nx - obstacle.x) < obstacle.width && Math.abs(nz - obstacle.z) < obstacle.depth);
+  const nextX = THREE.MathUtils.clamp(x, inside ? -3.15 : -16, inside ? 3.15 : 16);
+  const nextZ = THREE.MathUtils.clamp(z, inside ? .38 : 11, inside ? 2.07 : 24.6);
+  if (!collides(nextX, camera.position.z)) camera.position.x = nextX;
+  if (!collides(camera.position.x, nextZ)) camera.position.z = nextZ;
+}
+
+function look(yaw, pitch) {
+  camera.rotation.y += yaw;
+  camera.rotation.x = THREE.MathUtils.clamp(camera.rotation.x + pitch, -1.25, 1.25);
 }
 
 function update(dt) {
   if (mode !== 'ready') elapsed += dt;
   if (mode === 'launch') {
     rocketRig.position.y = elapsed ** 2 * 2.5;
-    controls.target.y = 47 + rocketRig.position.y * .75;
-    camera.position.y += dt * elapsed * 4;
+    camera.rotation.x = .12 + elapsed * .12;
     if (elapsed >= 6) setView('transfer');
+  } else if (active) {
+    move(dt);
   }
   const seconds = Math.floor(elapsed);
   get('mission-time').textContent = 'T+ ' + String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
-  get('objective').textContent = objective[mode];
+  get('objective').textContent = missionObjective();
+  const hint = !active ? '' : mode === 'launch' ? 'Kalkış sürüyor' :
+    mode === 'ready' ? (nearPanel() ? 'E · Kalkışı başlat' : 'W · Yeşil kalkış paneline yaklaş') :
+    powerRestored ? 'Q · Görev bilgisayarını kontrol et' :
+    nearPanel() ? 'E · Kabin gücünü geri getir' : 'Kırmızı güç paneline yaklaş';
+  if (get('prompt').textContent !== hint) get('prompt').textContent = hint;
 }
+
+function missionObjective() {
+  if (mode === 'transfer') return powerRestored ? 'Kabin gücü aktif' : 'Kabin gücünü geri getir';
+  return objective[mode];
+}
+
 get('start-btn').onclick = () => {
+  active = true;
+  get('intro').hidden = true;
+  renderer.domElement.focus();
+};
+get('reset-btn').onclick = () => {
   elapsed = 0;
-  if (mode === 'transfer') setWatch(false);
-  setView(mode === 'transfer' ? 'ready' : 'launch');
+  held.clear();
+  setWatch(false);
+  setView('ready');
+  renderer.domElement.focus();
 };
 get('watch-btn').onclick = () => setWatch(!watchOpen);
+renderer.domElement.tabIndex = 0;
+const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft']);
 window.addEventListener('keydown', event => {
-  if (event.key.toLowerCase() === 'f') {
-    const task = document.fullscreenElement ? document.exitFullscreen() : viewport.requestFullscreen();
-    task.catch(console.error);
+  if (!active || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (movementKeys.has(event.code)) {
+    event.preventDefault();
+    held.add(event.code);
+  }
+  if (event.repeat) return;
+  if (event.code === 'KeyE') interact();
+  if (event.code === 'KeyQ') setWatch(!watchOpen);
+  if (event.code === 'Escape') held.clear();
+  if (event.code === 'KeyF') {
+    const task = document.fullscreenElement ? document.exitFullscreen() : document.querySelector('main').requestFullscreen();
+    task.catch(() => {});
+  }
+});
+window.addEventListener('keyup', event => held.delete(event.code));
+window.addEventListener('blur', () => held.clear());
+const canvas = renderer.domElement;
+canvas.addEventListener('click', () => {
+  if (!active || document.pointerLockElement === canvas) return;
+  try {
+    canvas.requestPointerLock?.()?.catch(() => {});
+  } catch {
+    // Drag and arrow keys remain available in embedded browsers.
+  }
+});
+canvas.addEventListener('pointermove', event => {
+  if (!active || mode === 'launch') return;
+  if (document.pointerLockElement === canvas || event.buttons === 1) {
+    look(-event.movementX * .003, -event.movementY * .003);
   }
 });
 new ResizeObserver(() => {
@@ -138,15 +254,9 @@ Promise.all([asset('sls'), asset('orion'), asset('astronaut')]).then(([sls, orio
     const person = fit(astronaut.scene.clone(), 1.7);
     person.position.set(x, 1.13, .14);
     cabin.add(person);
-    if (x === 0) {
-      wrist = box(cabin, [.21, .16, .12], [.67, 1.38, .34], 0x233432);
-      const screen = box(wrist, [.17, .12, .014], [0, 0, .067], 0x96bd5a);
-      screen.material.emissive.set(0x9fec57);
-      wrist.userData.watch = true;
-      screen.userData.watch = true;
-    }
   }
   ready = true;
+  get('start-btn').disabled = false;
   get('watch-btn').disabled = false;
   setView('ready');
 }).catch(error => {
@@ -154,21 +264,10 @@ Promise.all([asset('sls'), asset('orion'), asset('astronaut')]).then(([sls, orio
   console.error(error);
 });
 
-const ray = new THREE.Raycaster();
-renderer.domElement.addEventListener('click', event => {
-  if (mode !== 'transfer') return;
-  const rect = renderer.domElement.getBoundingClientRect();
-  ray.setFromCamera(new THREE.Vector2(
-    (event.clientX - rect.left) / rect.width * 2 - 1,
-    1 - (event.clientY - rect.top) / rect.height * 2
-  ), camera);
-  if (ray.intersectObject(cabin)[0]?.object.userData.watch) setWatch(!watchOpen);
-});
-
 let previous = performance.now();
 let manualTime = false;
 function render() {
-  controls.update();
+
   renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(now => {
@@ -183,6 +282,7 @@ window.advanceTime = ms => {
 };
 window.render_game_to_text = () => JSON.stringify({
   mode, ready, elapsedSeconds: Math.floor(elapsed), crew: 3, watchOpen,
-  objective: objective[mode], rocketHeightMeters: Math.round(rocketRig.position.y),
+  objective: missionObjective(), active, powerRestored, nearPanel: nearPanel(),
+  position: { x: camera.position.x, z: camera.position.z }, rocketHeightMeters: Math.round(rocketRig.position.y),
   coordinates: 'Metre, Y yukarı'
 });

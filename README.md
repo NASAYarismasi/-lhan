@@ -54,7 +54,8 @@ npm ci
 npm run dev
 ```
 
-Terminaldeki yerel adresi açın. Modeli fareyle döndürün, **Kalkışı başlat** ile 3D fırlatmayı izleyin ve kabinde **Kol bilgisayarını aç** ile görev süresini kontrol edin. **Görevi sıfırla** rampaya dönüyor.
+Terminaldeki yerel adresi açıp **Göreve gir** seçeneğini seçin. **WASD** ile yürüyün, sahneye tıklayıp fareyle veya ok tuşlarıyla bakın. Yeşil kalkış paneline yaklaşınca **E** ile fırlatmayı başlatın. Kabinde kırmızı güç paneline yürüyüp **E** ile sistemi açın. **Q** kol bilgisayarını açar ve kapatır. **F** tam ekran, **Esc** fare kilidinden çıkış. Gömülü tarayıcıda fare kilidi çalışmazsa sürükleyerek veya oklarla bakabilirsiniz.
+
 
 SLS ve Orion, README’deki NASA STL kaynaklarından Blender’da sadeleştirilip GLB’ye çevrildi. NASA astronot GLB’si kendi Draco sıkıştırmasıyla yüklü. Bu önizleme için yaklaşık model ölçekleri ve animasyon profili kullanılıyor. Kol bilgisayarı şimdilik süre ve aktif adımı gösteriyor. Mars inişi ve fizik hesabı sonraki aşama.
 
