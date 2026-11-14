@@ -29,3 +29,6 @@ New Vitest coverage checks source layout/cameras, instanced counts, no extra sha
 Final validation: **23 test files / 106 tests passed**, production build passed (existing large Three.js chunk advisory only). Full browser control flow passed without console/page errors. Ten original/integrated screenshots were inspected. `scripts/ova-qa.mjs` preserves the real-control walkthrough; it uses the same installed skill Playwright import as `scripts/render-qa.mjs`, :5175, one browser, SwiftShader and 120 s capture timeouts.
 
 The source rover's three transmitting lens materials are adapted in `assets.mjs` to ordinary translucent glass; the original GLB remains byte-identical. This removes the extra scene-refraction pass. A representative ladder view fell from 1,761 to 1,186 render calls and from 1.62 M to 1.07 M submitted triangles (including shadow passes). These are render counters, not a hardware FPS benchmark.
+
+
+> **2026-11-14 22:15 — superseded.** İhan pushed his readable source (NASAYarismasi/-lhan a7d5ce6). The game now uses it from `src/colony/ihan/`; the recovered `src/colony/ova/` modules were removed.
