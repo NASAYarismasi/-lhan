@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { P0 } from '../sim/constants.js';
 import { seeded } from './primitives.js';
+import { landingSequence } from './landingSequence.js';
 
 function plume(color, hydrolox) {
   const uniforms={time:{value:0},power:{value:0},color:{value:new THREE.Color(color)},hydro:{value:hydrolox?1:0},pressure:{value:1}};
@@ -69,16 +70,39 @@ export function createEffects(scene) {
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     }`}));plasma.position.y=2;scene.add(plasma);
-  let lastTime=null,carry=0,quality=1,processedTime=-Infinity;
+  // Cosmetic ablative wake: driven by the existing Sutton-Graves heat flux,
+  // not an invented entry trajectory or a thermal/CFD temperature solution.
+  const plasmaWake=new THREE.Mesh(new THREE.ConeGeometry(8.8,23,32,1,true),new THREE.ShaderMaterial({
+    transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,
+    uniforms:plasma.material.uniforms,
+    vertexShader:`varying vec2 vUv;
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+    void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);
+    #include <logdepthbuf_vertex>
+    }`,
+    fragmentShader:`uniform float heat,time;varying vec2 vUv;
+    #include <common>
+    #include <logdepthbuf_pars_fragment>
+    void main(){
+    #include <logdepthbuf_fragment>
+    float trail=pow(1.-vUv.y,1.7);float filaments=.4+.6*pow(.5+.5*sin(vUv.x*144.+vUv.y*27.-time*31.),4.);gl_FragColor=vec4(2.4,.35,.08,heat*trail*filaments*.24);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    }`}));scene.add(plasmaWake);
+  const entryLight=new THREE.PointLight(0xff6425,0,35,2);scene.add(entryLight);
+  let lastTime=null,carry=0,quality=1,processedTime=-Infinity,landedDust=false;
   function emit(s,pos,kind) {
     if(particles.length>=max*quality)particles.shift();
     const c=Math.cos(s.theta),sn=Math.sin(s.theta),x=pos[0],y=pos[1];
-    particles.push({p:[s.position[0]+x*c+y*sn,s.position[1]-x*sn+y*c,pos[2]],t:s.missionTime+(s.phase==='PRELAUNCH'?s.countdown.time:0),kind,seed:random(),vx:(random()-.35)*(kind==='dust'?14:5),vz:(random()-.5)*8});
+    const speed=kind==='dust'?8+random()*9:5;
+    const vx=kind==='dust'?pos[0]/Math.max(1,Math.hypot(pos[0],pos[2]))*speed:(random()-.35)*speed;
+    particles.push({p:[s.position[0]+x*c+y*sn,s.position[1]-x*sn+y*c,pos[2]],t:s.missionTime+(s.phase==='PRELAUNCH'?s.countdown.time:0),kind,seed:random(),vx:vx*c,vy:-vx*sn,vz:kind==='dust'?pos[2]/Math.max(1,Math.hypot(pos[0],pos[2]))*speed:(random()-.5)*8,theta:s.theta});
   }
   return {setQuality(v){quality=v;}, update(s,height=900){
-    const clock=s.missionTime+(s.phase==='PRELAUNCH'?s.countdown.time:0);
+    const clock=s.missionTime+(s.phase==='PRELAUNCH'?s.countdown.time:0)+(s.phase==='LANDED'?landingSequence.elapsed??0:0);
     const dt=lastTime===null?0:Math.max(0,clock-lastTime);lastTime=clock;
-    rig.rotation.z=s.attitude+s.theta;rig.position.set(0,['PRELAUNCH','ASCENT'].includes(s.phase)&&!s.stages.find(p=>p.id==='core').attached?-70:0,0).applyAxisAngle(new THREE.Vector3(0,0,1),rig.rotation.z);
+    rig.rotation.z=s.phase==='EDL'?(s.thrustAngle??0):s.attitude+s.theta;rig.position.set(0,['PRELAUNCH','ASCENT'].includes(s.phase)&&!s.stages.find(p=>p.id==='core').attached?-70:0,0).applyAxisAngle(new THREE.Vector3(0,0,1),rig.rotation.z);
     const launch=['PRELAUNCH','ASCENT'].includes(s.phase),solid=launch&&s.phase==='ASCENT'&&s.stages.find(p=>p.id==='srb').attached;
     const core=launch&&s.stages.find(p=>p.id==='core').attached&&(s.engineFiring&&s.throttle>0||s.countdown.running&&s.countdown.time>=-6.5);
     const pressure=Math.max(0,Math.min(1,s.pressure/P0)),expand=Math.min(4,Math.pow(P0/Math.max(10,s.pressure),.16));
@@ -89,12 +113,16 @@ export function createEffects(scene) {
       const power=type==='srb'?Math.min(1,(s.thrust??3e7)/3e7):Math.max(.08,(s.throttle??1)*pre);
       const radius=type==='srb'?3.3:type==='rs25'?1.5:type==='retro'?1:2;
       const length=type==='srb'?70:type==='rs25'?27:type==='retro'?15:30;
-      m.scale.set(radius*expand,length*(.65+power*.35),radius*expand);m.material.uniforms.time.value=s.missionTime+(s.phase==='PRELAUNCH'?s.countdown.time:0);m.material.uniforms.power.value=power;m.material.uniforms.pressure.value=pressure;
+      m.scale.set(radius*expand,length*(type==='retro'?.2+power*.8:.65+power*.35),radius*expand);m.material.uniforms.time.value=s.missionTime+(s.phase==='PRELAUNCH'?s.countdown.time:0);m.material.uniforms.power.value=power;m.material.uniforms.pressure.value=pressure;
     }
+    engineLight.position.y=s.mars?1.5:-3;
     engineLight.intensity=(solid?90000:core?45000:s.phase==='EDL'&&s.engineFiring?18000*s.throttle:0)*(.92+.08*Math.sin(s.missionTime*103));
     cone.material.opacity=launch?Math.max(0,1-Math.abs((s.mach??0)-1)/.13)*Math.min(1,s.density/.15)*.22:0;
     plasma.visible=s.phase==='EDL'&&(s.heatFlux??0)>2000;plasma.material.uniforms.heat.value=Math.min(1.6,(s.heatFlux??0)/28000);plasma.material.uniforms.time.value=s.missionTime;plasma.rotation.z=!s.engineFiring?Math.atan2(Math.sqrt(Math.max(0,s.surfaceVelocity**2-s.verticalSpeed**2)),-s.verticalSpeed):0;
     plasma.position.set(0,2,0).applyAxisAngle(new THREE.Vector3(0,0,1),plasma.rotation.z);
+    plasmaWake.visible=plasma.visible&&!s.engineFiring;
+    plasmaWake.rotation.copy(plasma.rotation);plasmaWake.position.set(0,13,0).applyAxisAngle(new THREE.Vector3(0,0,1),plasma.rotation.z);
+    entryLight.intensity=plasma.visible?Math.min(1600,(s.heatFlux??0)*.018):0;entryLight.position.copy(plasma.position);
     // Samples are captured by the fixed physics loop, so time stepping and real-time flight produce the same trail.
     for(const e of s.exhaust??[]){
       if(e.time<=processedTime||clock-e.time>105)continue;
@@ -107,19 +135,28 @@ export function createEffects(scene) {
         if(e.altitude<30)for(let j=0;j<2;j++)emit(sample,[(random()-.5)*70,-e.altitude-9,(random()-.5)*45],e.phase==='PRELAUNCH'?'water':'ground');
       }processedTime=e.time;
     }
-    if(dt>0&&s.phase==='EDL'&&s.engineFiring&&s.altitude<80) {
-      carry+=Math.min(dt,.3)*90*quality;const count=Math.floor(carry);carry-=count;
+    if(dt>0&&s.phase==='EDL'&&s.engineFiring&&s.altitude<30) {
+      carry+=Math.min(dt,.3)*220*quality*(.25+.75*(s.throttle??0))*(1-s.altitude/35);const count=Math.floor(carry);carry-=count;
       for(let i=0;i<count;i++) {
-        if(s.mars)emit(s,[(random()-.5)*25,-s.altitude+2,(random()-.5)*25],'dust');
+        if(s.mars)emit(s,[(random()-.5)*14,-s.altitude+.45,(random()-.5)*14],'dust');
       }
+    }
+    // A short contact puff also survives a large deterministic test time step.
+    // Dust advection/settling is a bounded visual effect, not terrain physics.
+    if(s.phase!=='LANDED')landedDust=false;
+    if(s.phase==='LANDED'&&!landedDust){
+      for(let i=0;i<90*quality;i++)emit(s,[(random()-.5)*16,.35,(random()-.5)*16],'dust');
+      landedDust=true;
     }
     const c=Math.cos(s.theta),sn=Math.sin(s.theta);let n=0;
     for(let i=particles.length-1;i>=0;i--) {
-      const p=particles[i],age=clock-p.t,life=p.kind==='water'?6:p.kind==='dust'?18:100;
+      const p=particles[i],age=clock-p.t,life=p.kind==='water'?6:p.kind==='dust'?9:100;
       if(age>life){particles.splice(i,1);continue;}
-      const dx=p.p[0]+p.vx*age-s.position[0],dy=p.p[1]+Math.min(60,age*1.4)-s.position[1];
-      positions[n*3]=dx*c-dy*sn;positions[n*3+1]=dx*sn+dy*c;positions[n*3+2]=p.p[2]+p.vz*age;
-      sizes[n]=p.kind==='water'?1+age:7+age*(p.kind==='ground'?5:2.4);
+      const loft=p.kind==='dust'?Math.min(2.8,age*.8)*Math.exp(-age/5):Math.min(60,age*1.4);
+      const drift=p.kind==='dust'?4*(1-Math.exp(-age/4)):age;
+      const dx=p.p[0]+p.vx*drift+loft*Math.sin(p.theta)-s.position[0],dy=p.p[1]+p.vy*drift+loft*Math.cos(p.theta)-s.position[1];
+      positions[n*3]=dx*c-dy*sn;positions[n*3+1]=dx*sn+dy*c;positions[n*3+2]=p.p[2]+p.vz*drift;
+      sizes[n]=p.kind==='water'?1+age:p.kind==='dust'?3+age*2:7+age*(p.kind==='ground'?5:2.4);
       const shade=.42+p.seed*.22,glow=Math.max(0,1-age/5)*(p.kind==='ground'?1.2:.5);colors.set(p.kind==='dust'?[.47,.28,.14,(1-age/life)*.35]:p.kind==='water'?[.8,.88,.9,(1-age/life)*.25]:[shade+.08+glow,shade+.07+glow*.45,shade+.04,(1-age/life)*.43],n*4);n++;
     }
     geometry.setDrawRange(0,n);geometry.attributes.position.needsUpdate=true;geometry.attributes.size.needsUpdate=true;geometry.attributes.color.needsUpdate=true;smoke.material.uniforms.pixelScale.value=height;
