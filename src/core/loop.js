@@ -1,0 +1,42 @@
+export const SIM_DT = 1 / 50;
+export const WARPS = Object.freeze([1, 2, 5, 10, 50, 1000, 100000]);
+export const canWarp = (warp, state) => WARPS.includes(warp) && (warp <= 10 || (state.engineFiring === false && state.inAtmosphere === false));
+/** Fixed-step accumulator. A bounded work budget retains backlog; simulation time is never discarded.
+ * Mission analytical coasts can optionally batch fixed ticks through advanceCoast() at high warp.
+ */
+export function createLoop({ step, render = () => {}, getState = () => ({}), advanceCoast, maxSteps = 10000 }) {
+  let accumulator = 0, warp = 1, paused = false;
+  return {
+    get warp() { return warp; }, get paused() { return paused; }, get backlog() { return accumulator; },
+    setPaused(value) { paused = Boolean(value); },
+    setWarp(value) { if (!canWarp(value, getState())) return false; accumulator *= value / warp; warp = value; return true; },
+    reset() { accumulator = 0; warp = 1; paused = false; },
+    advance(realSeconds) {
+      if (!(realSeconds >= 0 && Number.isFinite(realSeconds))) throw new RangeError('Invalid elapsed time');
+      if (!canWarp(warp, getState())) { accumulator *= 10 / warp; warp = 10; }
+      if (!paused) {
+        accumulator += realSeconds * warp;
+        let count = 0;
+        while (accumulator + 1e-12 >= SIM_DT && count < maxSteps) {
+          if (!canWarp(warp, getState())) {
+            // Only unconsumed real time is rescaled when a coast reaches a powered phase.
+            // A large cruise frame must never spend its old 100000× backlog firing an engine.
+            accumulator *= 10 / warp;
+            warp = 10;
+            if (accumulator + 1e-12 < SIM_DT) break;
+          }
+          if (warp > 10 && advanceCoast && !getState().engineFiring && !getState().inAtmosphere) {
+            const ticks = Math.floor((accumulator + 1e-12) / SIM_DT);
+            const consumed = advanceCoast(ticks * SIM_DT);
+            if (consumed > 0) { accumulator -= consumed; count++; continue; }
+          }
+          step(SIM_DT); accumulator -= SIM_DT; count++;
+        }
+        accumulator = Math.max(0, accumulator);
+      }
+      const alpha = Math.min(1, accumulator / SIM_DT);
+      render(alpha);
+      return alpha;
+    }
+  };
+}
