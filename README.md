@@ -46,3 +46,15 @@ Ortak alanları değiştirmeden önce üç kişi birlikte karar versin.
 - [NASA roket, kapsül ve astronot modellerini hazırla](https://github.com/NASAYarismasi/Emre/issues/1)
 - [3D kalkış ve Mars transfer sahnelerini geliştir](https://github.com/NASAYarismasi/Emre/issues/2)
 - [Mars inişini ve koloniye veri teslimini tamamla](https://github.com/NASAYarismasi/Emre/issues/3)
+
+## 3D kalkış prototipi
+
+```powershell
+npm ci
+npm run dev
+```
+
+Terminaldeki yerel adresi açın. Modeli fareyle döndürün, **Kalkışı başlat** ile 3D fırlatmayı izleyin ve kabinde **Kol bilgisayarını aç** ile görev süresini kontrol edin. **Görevi sıfırla** rampaya dönüyor.
+
+SLS ve Orion, README’deki NASA STL kaynaklarından Blender’da sadeleştirilip GLB’ye çevrildi. NASA astronot GLB’si kendi Draco sıkıştırmasıyla yüklü. Bu önizleme için yaklaşık model ölçekleri ve animasyon profili kullanılıyor. Kol bilgisayarı şimdilik süre ve aktif adımı gösteriyor. Mars inişi ve fizik hesabı sonraki aşama.
+
