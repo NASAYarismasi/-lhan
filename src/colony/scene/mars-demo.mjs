@@ -2,8 +2,11 @@ import * as T from "three"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js"
 import { OrbitControls } from "three/addons/controls/OrbitControls.js"
-import { moduleModel, terrainModel } from "./mars-models.mjs"
+import { moduleModel, jezeroLandscape } from "./mars-models.mjs"
 import { addSurface, createFirstPerson, placeholderAstronaut } from "./mars-fps.mjs"
+import { createEnvironment } from "./environment.mjs"
+import { createFootprints } from "./surface.mjs"
+import { createMarsLander } from "../../render/marsLander.js"
 import { materialNames, nodes, crops, recipes, levelOf, startWorkshop, recipeError,
   craft, collect, grow, harvest, sell } from "../mars-atolye.mjs"
 import { modules, roles, exampleLanding, missionLength, createColony, createColonyFromFlight,
@@ -41,45 +44,34 @@ const pick = position => {
 }
 
 function makeScene() {
+  const lifecycle = new AbortController()
+  const listenerOptions = { signal: lifecycle.signal }
+  let disposed = false
   const renderer = new T.WebGLRenderer({ canvas, antialias: true })
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75))
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35))
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = T.PCFShadowMap
   renderer.toneMapping = T.ACESFilmicToneMapping
   const scene = new T.Scene()
-  const clearSky = new T.Color(0xb57c69)
-  const stormSky = new T.Color(0x84543c)
-  scene.background = clearSky.clone()
-  scene.fog = new T.FogExp2(clearSky, .012)
-  const camera = new T.PerspectiveCamera(41, 1, .055, 300)
+  const camera = new T.PerspectiveCamera(41, 1, .08, 50000)
   camera.position.set(29, 35, 35)
   const controls = new OrbitControls(camera, canvas)
   controls.enableDamping = true
   controls.maxPolarAngle = Math.PI / 2.35
   controls.minDistance = 18
   controls.maxDistance = 93
-  const ambient = new T.HemisphereLight(0xffdfc7, 0x91736d, 1.5)
-  scene.add(ambient)
-  const sun = new T.DirectionalLight(0xffd8ae, 2.9)
-  sun.position.set(-24, 28, 14)
-  sun.castShadow = true
-  sun.shadow.mapSize.set(1024, 1024)
-  Object.assign(sun.shadow.camera, { left: -25, right: 25, top: 25, bottom: -25, far: 82 })
-  sun.shadow.camera.updateProjectionMatrix()
-  sun.shadow.normalBias = .035
-  scene.add(sun)
-  const terrain = terrainModel(.011)
-  terrain.position.y = -5.4
+  const environment = createEnvironment(scene, camera, canvas)
+  const terrain = jezeroLandscape()
   scene.add(terrain)
   const ground = addSurface(scene)
-  const groundRay = new T.Raycaster()
-  const above = new T.Vector3()
-  const down = new T.Vector3(0, -1, 0)
   function groundY(x, z) {
-    above.set(x, 20, z)
-    groundRay.set(above, down)
-    return groundRay.intersectObject(ground, false)[0]?.point.y ?? 0
+    return ground.userData.heightAt(x, z)
   }
+  const tracks = createFootprints(scene, groundY)
+  const crewLander = createMarsLander()
+  crewLander.position.set(-18, groundY(-18, 14), 14)
+  crewLander.userData.radius = 6.5 // GAME ASSUMPTION: keep crew-lander footpads/ladder clear.
+  scene.add(crewLander)
   const roofGeometry = new T.BoxGeometry(roofSize.x * 2, .15, roofSize.z * 2)
   const roofMaterial = new T.MeshStandardMaterial({ color: 0x747875, metalness: .35, roughness: .68 })
   const roofMark = new T.MeshBasicMaterial({ color: 0xdfab5d, polygonOffset: true, polygonOffsetFactor: -1 })
@@ -134,7 +126,7 @@ function makeScene() {
   const pointer = new T.Vector2()
   const aimLabel = byId("aim")
   const groundObstacles = []
-  const hardware = []
+  const hardware = [crewLander]
   const marker = new T.Mesh(new T.RingGeometry(.17, .23, 24),
     new T.MeshBasicMaterial({ color: 0x9cf2bd, side: T.DoubleSide, depthTest: false }))
   marker.rotation.x = -Math.PI / 2
@@ -156,6 +148,11 @@ function makeScene() {
   function collides(x, z) {
     if (roofAccess) return true
     if (Math.abs(x) > siteRadius || Math.abs(z) > siteRadius || occupied(x, z, .31)) return true
+    // The clear +Z ladder approach lies between the landing legs. A square collider would block it.
+    if (Math.hypot(x - crewLander.position.x, z - crewLander.position.z) < 3.65) return true
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      if (Math.hypot(x - crewLander.position.x - sx * 4, z - crewLander.position.z - sz * 4) < .95) return true
+    }
     for (const [id, actor] of crewModels) {
       if (id !== playerId && actor.visible && Math.hypot(x - actor.position.x, z - actor.position.z) < .63) return true
     }
@@ -282,10 +279,11 @@ function makeScene() {
     onMode(active) {
       roofAccess = undefined
       controls.enabled = !active
+      environment.setFPS(active)
       viewport.classList.toggle("fps", active)
       byId("view-mode").textContent = active ? "Üs planına dön" : "Astronotun gözünden gez"
       byId("view-help").textContent = active
-        ? "WASD ile yürü · E ile yerleştir · Yaşam modülüne bakıp R ile çatıya eriş · Esc ile çık"
+        ? "WASD Yürü · Shift Hızlan · Boşluk Zıpla · E Etkileşim · R Çatı · L Lamba · Esc Fareyi bırak"
         : "Modülü seç ve zeminde veya çatıda istediğin noktaya tıkla · Sürükleyerek döndür"
       lastPointer = undefined
       redrawScene()
@@ -305,26 +303,35 @@ function makeScene() {
         return
       }
       roofAccess = camera.position.clone()
+      roofAccess.top = roof.userData.top
       const { x, z } = worldPlacement(target.item)
-      lookFrom(new T.Vector3(x, roof.userData.top + 1.67, z), -1.47)
+      lookFrom(new T.Vector3(x, roof.userData.top + 1.65, z), -1.47)
       status.textContent = "Nişanı çatıda istediğin noktaya getir. E ile yerleştir, R ile in."
     },
     collides,
-    groundY,
+    groundY: (x, z) => roofAccess ? roofAccess.top : groundY(x, z),
+    onStep(x, z, yaw, running) {
+      if (!roofAccess) tracks.step(x, z, yaw)
+      environment.step(running)
+    },
   })
+  // Crew arrives beside the +Z hatch ladder; avoid respawning inside the landing legs.
+  const hatchSpawn = new T.Vector3(crewLander.position.x + .7, 0, crewLander.position.z + 4.8)
+  crewModels.get(playerId).position.set(hatchSpawn.x, groundY(hatchSpawn.x, hatchSpawn.z), hatchSpawn.z)
+  fps.respawn(hatchSpawn)
   canvas.addEventListener("pointermove", event => {
     if (fps.active) return
     lastPointer = event
     drawTarget(targetAt(event))
-  })
+  }, listenerOptions)
   canvas.addEventListener("pointerleave", () => {
     if (!fps.active) { lastPointer = undefined; drawTarget(null) }
-  })
-  canvas.addEventListener("pointerdown", event => { dragStart = [event.clientX, event.clientY] })
+  }, listenerOptions)
+  canvas.addEventListener("pointerdown", event => { dragStart = [event.clientX, event.clientY] }, listenerOptions)
   canvas.addEventListener("pointerup", event => {
     if (fps.active || event.button !== 0 || !dragStart || Math.hypot(event.clientX - dragStart[0], event.clientY - dragStart[1]) > 5) return
     commit(targetAt(event))
-  })
+  }, listenerOptions)
   const observer = new ResizeObserver(() => {
     const { clientWidth, clientHeight } = viewport
     if (!clientWidth || !clientHeight) return
@@ -333,31 +340,50 @@ function makeScene() {
     renderer.setSize(clientWidth, clientHeight, false)
   })
   observer.observe(viewport)
-  let previousTime
+  const taskObserver = new MutationObserver(() => environment.sync(state, status.textContent))
+  taskObserver.observe(status, { childList: true, characterData: true, subtree: true })
+  let previousTime, manualTime = false
+  function tick(delta) {
+    environment.update(delta)
+    tracks.update(delta)
+    if (fps.active) fps.update(delta)
+    else controls.update()
+    scene.updateMatrixWorld()
+  }
   renderer.setAnimationLoop(time => {
     const delta = Math.min(.05, (time - (previousTime ?? time)) / 1000)
     previousTime = time
-    if (fps.active) fps.update(delta)
-    else controls.update()
+    if (!manualTime) tick(delta)
     renderer.render(scene, camera)
   })
+  // Preserve the same deterministic observation/stepping hooks as the flight scene.
+  const previousTextHook = window.render_game_to_text, previousAdvanceHook = window.advanceTime
+  window.render_game_to_text = () => JSON.stringify({
+    scene: "colony", coordinates: "metres; +X east, +Y up, -Z north", state,
+    storm: Boolean(state.timeline.at(-1)?.storm), activeTask: status.textContent,
+    fps: fps.active, player: fps.telemetry, environment: environment.telemetry,
+  })
+  window.advanceTime = ms => {
+    if (!Number.isFinite(ms) || ms < 0) throw new RangeError("Invalid time step")
+    manualTime = true
+    let remaining = ms / 1000
+    while (remaining > 1e-9) { const dt = Math.min(1/60, remaining); tick(dt); remaining -= dt }
+    renderer.render(scene, camera)
+    return Promise.resolve()
+  }
 
   function redrawScene() {
+    if (disposed) return
     const playerIndex = state.crew.findIndex(person => person.id === playerId)
     byId("helmet").textContent = "Astronot " + (playerIndex + 1) + " · Sağlık %" + state.crew[playerIndex].health
-    const storm = Boolean(state.timeline.at(-1)?.storm)
-    const sky = storm ? stormSky : clearSky
-    scene.background.copy(sky)
-    scene.fog.color.copy(sky)
-    scene.fog.density = storm ? .048 : .012
-    sun.intensity = storm ? .65 : 2.9
-    ambient.intensity = storm ? 1.12 : 1.5
+    environment.sync(state, status.textContent)
     objects.clear()
     for (const node of nodes) depositMeshes.get(node.id).visible = workshop.collected[node.id] !== state.sol
     roofs.clear()
     groundObstacles.length = 0
-    for (const asset of hardware) groundObstacles.push({ x: asset.position.x, z: asset.position.z,
+    for (const asset of hardware.filter(asset => asset !== crewLander)) groundObstacles.push({ x: asset.position.x, z: asset.position.z,
       halfX: asset.userData.radius, halfZ: asset.userData.radius })
+    const moduleLights = []
     for (const item of state.placed) {
       const { x, z, supportId } = worldPlacement(item)
       const unit = model(item.type)
@@ -365,6 +391,8 @@ function makeScene() {
       const roof = supportId && roofs.get(supportId)
       const y = roof ? roof.userData.top : foundationHeight(x, z, size)
       unit.position.set(x, y, z)
+      moduleLights.push({ x, y, z, halfZ: size.z, lightHeight: item.type.endsWith("Pod") ? .85 : 1.35,
+        type: item.type, active: item.active })
       unit.userData.module = item
       if (!supportId) {
         for (const side of [-1, 1]) for (const back of [-1, 1]) {
@@ -419,6 +447,7 @@ function makeScene() {
     for (const person of state.crew) {
       crewModels.get(person.id).visible = person.health > 0 && (!fps.active || person.id !== playerId)
     }
+    environment.syncModules(moduleLights)
     scene.updateMatrixWorld(true)
     preview.clear()
     drawTarget(fps.active ? targetAt() : lastPointer ? targetAt(lastPointer) : null)
@@ -461,7 +490,34 @@ function makeScene() {
 
   return {
     redraw: redrawScene,
+    resetEnvironment() { environment.reset() },
     loadNASA,
+    dispose() {
+      if (disposed) return
+      disposed = true; lifecycle.abort(); taskObserver.disconnect()
+      renderer.setAnimationLoop(null)
+      observer.disconnect(); fps.dispose(); environment.dispose(); tracks.dispose(); controls.dispose()
+      window.render_game_to_text = previousTextHook; window.advanceTime = previousAdvanceHook
+      const geometries = new Set(), materials = new Set(), textures = new Set()
+      scene.traverse(part => {
+        if (part.geometry) geometries.add(part.geometry)
+        for (const material of [part.material].flat()) if (material) {
+          materials.add(material)
+          for (const value of Object.values(material)) if (value?.isTexture) textures.add(value)
+        }
+      })
+      for (const source of [...models.values(), habitatAsset, panelAsset]) source?.traverse(part => {
+        if (part.geometry) geometries.add(part.geometry)
+        for (const material of [part.material].flat()) if (material) {
+          materials.add(material)
+          for (const value of Object.values(material)) if (value?.isTexture) textures.add(value)
+        }
+      })
+      for (const geometry of [roofGeometry, railLong, railShort, postGeometry, foundationGeometry]) geometries.add(geometry)
+      for (const material of [roofMaterial, roofMark, ghostMaterial, oreMaterial, iceMaterial]) materials.add(material)
+      for (const resource of [...geometries, ...materials, ...textures]) resource.dispose()
+      renderer.dispose()
+    },
     toggleView() {
       if (!fps.active) fps.respawn(crewModels.get(playerId).position)
       fps.setActive(!fps.active)
@@ -720,6 +776,7 @@ byId("reset").onclick = () => {
   workshop = startWorkshop()
   byId("workshop-message").textContent = "Buz ve maden yataklarını keşfet."
   selected = state.inventory[0]?.id
+  sceneView?.resetEnvironment()
   status.textContent = "Envanterden modül seç ve uygun yüzeye yerleştir."
   update()
 }
@@ -772,3 +829,7 @@ try {
   status.textContent = "3B görünüm açılamadı. WebGL destekleyen bir tarayıcıda aç."
 }
 update()
+
+// Surface worker lifecycle: preserve a back-forward cached page, dispose on real teardown/HMR.
+window.addEventListener("pagehide", event => { if (!event.persisted) sceneView?.dispose() }, { once: true })
+if (import.meta.hot) import.meta.hot.dispose(() => sceneView?.dispose())
