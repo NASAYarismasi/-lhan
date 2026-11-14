@@ -12,6 +12,7 @@ import { prepareOvaRover } from '../ihan/assets.mjs'
 import { createLifeSupportFacilities } from '../ihan/life-support.mjs'
 import { createEnvironment } from "./environment.mjs"
 import { createFootprints } from "./surface.mjs"
+import { createCrewAgents } from "./crew-npc.mjs"
 import { batchStaticModel, prepareSurfaceMaterials, batchStaticLeaves } from "./static-model.mjs"
 import { createMarsLander } from "../../render/marsLander.js"
 import { cargoOptions, defaultManifest, planMission, cargoLimitKg, transitDays } from "../mars-gorev-plani.mjs"
@@ -142,6 +143,8 @@ function makeScene() {
     scene.add(actor)
     crewModels.set(index, actor)
   })
+  // Astronauts the player is not controlling work at the base installations (label above helmet).
+  const crewAgents = createCrewAgents({ crewModels, groundY })
   const models = new Map()
   function model(type) {
     if (!models.has(type)) models.set(type, moduleModel(type))
@@ -441,6 +444,7 @@ function makeScene() {
     lifeSupport.update(delta, environment.telemetry, camera, fps)
     environment.setLifeSupport(lifeSupport.telemetry)
     tracks.update(delta)
+    crewAgents.update(delta, { state, playerId, fpsActive: fps.active, camera, speed: environment.telemetry.warp })
     if (fps.active) fps.update(delta, updateAim)
     else controls.update()
     scene.updateMatrixWorld()
@@ -458,6 +462,7 @@ function makeScene() {
     world:'duz-ova', view:currentView, insideHabitat:navigation.inside, assets:{crew:Boolean(teamCharacter),rover:reference.children.length>0},
     fps: fps.active, player: fps.telemetry, environment: environment.telemetry,
     lifeSupport: lifeSupport.telemetry, // IHAN-SRC: deterministic observer contract
+    crewAgents: crewAgents.telemetry,
     placement: { selected: selected ?? null, preview: preview.visible, marker: marker.visible },
     rendering: { ...frameStats, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, pixelRatio: renderer.getPixelRatio() },
   })
@@ -605,7 +610,7 @@ function makeScene() {
       disposed = true; lifecycle.abort(); taskObserver.disconnect()
       renderer.setAnimationLoop(null)
       if (gpuFence) gl.deleteSync(gpuFence)
-      observer.disconnect(); lifeSupport.dispose(); fps.dispose(); ova.dispose(); // IHAN-SRC
+      observer.disconnect(); crewAgents.dispose(); lifeSupport.dispose(); fps.dispose(); ova.dispose(); // IHAN-SRC
        environment.dispose(); tracks.dispose(); controls.dispose()
       window.render_game_to_text = previousTextHook; window.advanceTime = previousAdvanceHook
       const geometries = new Set(), materials = new Set(), textures = new Set()

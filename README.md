@@ -123,3 +123,31 @@ Emre üretir, Samet aktarır, İhan koloni başlangıcında okur. Şema korunur;
 - **Samet** — arayüz & kol terminali
 
 NASA Space Apps 2026 · Sivas
+
+## Ekip için: son hali indirme
+
+Güncel oyun `feature/pro-rebuild` dalında ([PR #6](https://github.com/NASAYarismasi/Emre/pull/6)).
+
+**İlk kez** (Node.js 20+ ve Git gerekli):
+
+```bash
+git clone https://github.com/NASAYarismasi/Emre.git
+cd Emre
+git checkout feature/pro-rebuild
+npm install
+npm run dev
+```
+
+**Daha önce indirdiysen** (proje klasöründe):
+
+```bash
+git fetch origin
+git checkout feature/pro-rebuild
+git pull
+npm install
+npm run dev
+```
+
+Terminalde çıkan adresi (genelde `http://localhost:5173/`) Chrome'da aç. Kolonide doğrudan başlamak için `http://localhost:5173/colony.html` adresini kullan.
+
+Git kullanmadan: GitHub'da oturum aç → [dalın ZIP'ini indir](https://github.com/NASAYarismasi/Emre/archive/refs/heads/feature/pro-rebuild.zip) → klasörü aç → içinde `npm install` ve `npm run dev`.
