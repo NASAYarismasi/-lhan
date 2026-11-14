@@ -12,7 +12,7 @@ import { prepareOvaRover } from '../ihan/assets.mjs'
 import { createLifeSupportFacilities } from '../ihan/life-support.mjs'
 import { createEnvironment } from "./environment.mjs"
 import { createFootprints } from "./surface.mjs"
-import { batchStaticModel, prepareSurfaceMaterials } from "./static-model.mjs"
+import { batchStaticModel, prepareSurfaceMaterials, batchStaticLeaves } from "./static-model.mjs"
 import { createMarsLander } from "../../render/marsLander.js"
 import { cargoOptions, defaultManifest, planMission, cargoLimitKg, transitDays } from "../mars-gorev-plani.mjs"
 import { createSceneColony } from "./mission-start.mjs"
@@ -75,6 +75,8 @@ function makeScene() {
   controls.maxDistance = 380
   const environment = createEnvironment(scene, camera, canvas)
   const ova = createOvaWorld(scene)
+  // Host perf: İhan's domes/tunnels (~330 parts) and the 108 horizon mounds never move -> per-material batches.
+  for (const root of [scene.getObjectByName('Ihan_pressurised_habitat'), ...scene.children.filter(o => o.isGroup && o.children.length > 50 && o.children.every(c => c.isMesh && !c.children.length))]) if (root) batchStaticLeaves(root)
   const navigation = createOvaNavigation(ova)
   const ground = ova.ground
   let currentView = 'panorama'

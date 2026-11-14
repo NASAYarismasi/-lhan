@@ -4,6 +4,7 @@ import { createAirSystem } from './hava.mjs';
 import { createWaterSystem } from './su.mjs';
 import { createGreenhouse } from './sera.mjs';
 import { createLifeSupport, stepLifeSupport, syncLifeSupport, lifeSupportTelemetry } from '../../sim/colonyLifeSupport.js';
+import { findAnimatedObjects, batchStaticLeaves } from '../scene/static-model.mjs';
 
 export function createLifeSupportFacilities(scene, heightAt, initialState) {
   const origin = { x: 26, z: -11, y: heightAt(26, -11) };
@@ -12,6 +13,14 @@ export function createLifeSupportFacilities(scene, heightAt, initialState) {
   const air = createAirSystem(scene, { x: 19, z: 6, heightAt });
   const water = createWaterSystem(scene, { x: 64, z: -26, heightAt });
   const machinery = [air, water].map(model => new T.Box3().setFromObject(model.group).expandByScalar(.32));
+  // Host perf: ~920 static parts (pipes, flanges, frames, panels) become per-material batches.
+  // Whatever İhan's own API moves (doors, fans, drill) is detected by running it once and stays live.
+  const keepGreenhouse = findAnimatedObjects(greenhouse.group, () => { greenhouse.setAirlock(true, true, true); greenhouse.setNight(true); });
+  greenhouse.setNight(false); greenhouse.setAirlock(false, false);
+  const keepAir = findAnimatedObjects(air.group, () => { air.update({ producer: true }); for (let i = 1; i < 4; i++) air.frame(i, .5); });
+  const keepWater = findAnimatedObjects(water.group, () => { water.update({ extractor: true }); for (let i = 1; i < 4; i++) water.frame(i, .5); });
+  air.update({ producer: false }); water.update({ extractor: false });
+  const batched = [batchStaticLeaves(greenhouse.group, keepGreenhouse), batchStaticLeaves(air.group, keepAir), batchStaticLeaves(water.group, keepWater)];
   let support = createLifeSupport(initialState), colony = initialState;
   let inside = false, cycle = null, time = 0, lastClock = null, lastDraw = -1;
   const direction = new T.Vector3();
