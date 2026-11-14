@@ -36,6 +36,7 @@ const startColony = () => createSceneColony(landing, activeMissionPlan)
 let state = startColony()
 let workshop = startWorkshop()
 let selected
+let fpsEntered = false // first FPS entry starts at the lander; later entries resume in place
 let playerId = state.crew[0].id
 let sceneView
 let lastReport = colonyReport(state)
@@ -58,7 +59,8 @@ function makeScene() {
   const lifecycle = new AbortController()
   const listenerOptions = { signal: lifecycle.signal }
   let disposed = false
-  const renderer = new T.WebGLRenderer({ canvas, antialias: false })
+  // high-performance: on dual-GPU laptops (e.g. AMD iGPU + RTX 3050) this asks the browser for the discrete GPU.
+  const renderer = new T.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35))
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = T.PCFShadowMap
@@ -104,7 +106,10 @@ function makeScene() {
   const iceMaterial = new T.MeshStandardMaterial({ color: 0x8cb0b9, roughness: .48, flatShading: true })
   const depositGeometry = new T.DodecahedronGeometry(.64, 0)
   depositGeometry.computeBoundingBox()
-  for (const node of nodes) {
+  // Team decision 2026-11-14: no mining/collecting on the surface. İhan's rule file keeps its
+  // deposit list; the scene simply places none.
+  const surfaceDeposits = []
+  for (const node of surfaceDeposits) {
     const rock = new T.Mesh(depositGeometry,
       node.material === "ice" ? iceMaterial : oreMaterial)
     rock.scale.set(1.24, .57, .94)
@@ -230,7 +235,7 @@ function makeScene() {
       }
       if (hardware.some(asset => asset.visible && Math.abs(x - asset.position.x) < size.x + asset.userData.radius &&
         Math.abs(z - asset.position.z) < size.z + asset.userData.radius)) return { error: "NASA aracına çok yakın." }
-      if (nodes.some(node => Math.abs(x - node.x) < size.x + .7 && Math.abs(z - node.z) < size.z + .7)) {
+      if (surfaceDeposits.some(node => Math.abs(x - node.x) < size.x + .7 && Math.abs(z - node.z) < size.z + .7)) {
         return { error: "Kaynak yatağının çevresini açık bırak." }
       }
       if (fps.active && Math.abs(camera.position.x - x) < size.x + .31 &&
@@ -325,7 +330,8 @@ function makeScene() {
       controls.enabled = !active
       if (active) {
         currentView = 'astronaut'
-        fps.teleport(camera.position, -.04, arrivalYaw) // face the dome complex from the lander
+        if (!fpsEntered) fps.teleport(camera.position, -.04, arrivalYaw) // first entry: face the domes
+        fpsEntered = true
       }
       environment.setFPS(active)
       viewport.classList.toggle("fps", active)
@@ -475,7 +481,7 @@ function makeScene() {
     environment.setLifeSupport(lifeSupport.telemetry)
     environment.sync(state, status.textContent)
     objects.clear()
-    for (const node of nodes) depositMeshes.get(node.id).visible = workshop.collected[node.id] !== state.sol
+    for (const node of surfaceDeposits) depositMeshes.get(node.id).visible = workshop.collected[node.id] !== state.sol
     roofs.clear()
     groundObstacles.length = 0
     for (const asset of hardware.filter(asset => asset !== crewLander && asset.visible)) groundObstacles.push({ x: asset.position.x, z: asset.position.z,
@@ -630,7 +636,9 @@ function makeScene() {
       status.textContent=name==='solar' ? 'Güneş tarlası · 42 masa · 420 panel' : name==='pad' ? 'Modül kurulum alanı · Zemine tıklayarak yerleştir.' : 'Düz Ova · İhan’ın Mars üssü'
     },
     toggleView() {
-      if (!fps.active) fps.respawn(crewActor(playerId).position, arrivalYaw)
+      // Only the very first FPS entry starts at the lander ladder. Later entries resume where the
+      // astronaut left off (setActive(false) stores the last position/heading as the spawn).
+      if (!fps.active && !fpsEntered) fps.respawn(crewActor(playerId).position, arrivalYaw)
       fps.setActive(!fps.active)
     },
     selectPlayer() {
@@ -771,8 +779,7 @@ function updateWorkshop(stopped) {
   byId("workshop-stock").textContent = stock.credits + " kredi · " + Object.entries(stock)
     .filter(([id]) => id !== "credits")
     .map(([id, amount]) => materialNames[id] + " " + amount).join(" · ")
-  byId("workshop-skills").textContent = "Madencilik " + levelOf(xp.mining) + ". seviye · " + xp.mining +
-    " XP  /  Tarım " + levelOf(xp.farming) + ". seviye · " + xp.farming + " XP"
+  byId("workshop-skills").textContent = "Tarım " + levelOf(xp.farming) + ". seviye · " + xp.farming + " XP"
   byId("recipes").replaceChildren(...recipes.map(recipe => {
     const action = button(recipe.name, () => workshopAction(() => {
       workshop = craft(workshop, recipe.id)
@@ -904,7 +911,7 @@ function beginColony(next) {
   state = next
   sceneView?.resetEnvironment()
   workshop = startWorkshop()
-  byId("workshop-message").textContent = "Buz ve maden yataklarını keşfet."
+  byId("workshop-message").textContent = "Seradaki kabinleri yetiştir; hasadı erzağa aktar."
   selected = undefined
   playerId = (state.crew.find(person => person.health > 0) ?? state.crew[0]).id
   byId("player").replaceChildren(...state.crew.map((person, index) => new Option("Astronot " + (index + 1), person.id)))

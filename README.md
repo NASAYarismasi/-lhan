@@ -56,7 +56,7 @@ Tam ekran yüzey sahnesindeki sol menüden **Kaynaklar**, **Mürettebat**, **Mod
 1. Mürettebatın görevlerini ata ve modül envanterinden bir modül seç.
 2. Çekmeceyi kapat; uygun zemine veya desteklenen çatıya yerleştir. İnşaat ve üretim için ekip görevleri önemlidir.
 3. Kaynaklar panelinde yaşam desteği önceliğini belirle ve **Bir sol ilerlet** düğmesine bas.
-4. Ekip görevlerini sonraki sol için yeniden düzenle. Maden ve buz topla, atölyede üret, serada yetiştir ve hasat yap.
+4. Ekip görevlerini sonraki sol için yeniden düzenle. Serada yetiştir ve hasat yap.
 5. On sollük görevin sonunda raporu incele ve sonuç JSON’unu indir. Üç astronot hayatta kalmalı; son üç solun her birinde temel ihtiyaçlar karşılanmalıdır.
 
 | Kontrol | İşlev |
@@ -64,7 +64,7 @@ Tam ekran yüzey sahnesindeki sol menüden **Kaynaklar**, **Mürettebat**, **Mod
 | Sahneye tıklama | Astronot görünümünde fare kilidi; kilitliyken etkileşim |
 | W / A / S / D | Yürüme |
 | Fare / yön tuşları | Astronotun bakışını döndürme |
-| E | Hedefteki modülü yerleştirme, kaynak toplama veya hasat |
+| E | Hedefteki modülü yerleştirme, hava kilidi, hasat |
 | R | Yaşam modülüne bakarken çatıya erişme / geri dönme |
 | Esc | Açık paneli kapatma; astronot görünümünden üs planına dönme / fare kilidini bırakma |
 | Üs planında fare sürükleme / tekerlek | Kamerayı döndürme / yakınlaştırma |
