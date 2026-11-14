@@ -2,8 +2,11 @@ import * as T from "three"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js"
 import { OrbitControls } from "three/addons/controls/OrbitControls.js"
-import { moduleModel, jezeroLandscape } from "./mars-models.mjs"
-import { addSurface, createFirstPerson, placeholderAstronaut } from "./mars-fps.mjs"
+import { moduleModel } from "./mars-models.mjs"
+import { createFirstPerson, placeholderAstronaut } from "./mars-fps.mjs"
+import { createOvaWorld } from '../ova/world.mjs'
+import { createOvaNavigation } from '../ova/navigation.mjs'
+import { prepareOvaRover } from '../ova/assets.mjs'
 import { createEnvironment } from "./environment.mjs"
 import { createFootprints } from "./surface.mjs"
 import { batchStaticModel, prepareSurfaceMaterials } from "./static-model.mjs"
@@ -13,7 +16,7 @@ import { createSceneColony } from "./mission-start.mjs"
 import { materialNames, nodes, crops, recipes, levelOf, startWorkshop, recipeError,
   craft, collect, grow, harvest, replant, sell } from "../mars-atolye.mjs"
 import { modules, roles, exampleLanding, missionLength, createColonyFromFlight,
-  footprints, roofSize, siteRadius, worldPlacement,
+  footprints, roofSize, worldPlacement,
   placementError, placeModule, assignAstronaut, advanceSol, colonyReport } from "../mars-koloni.mjs"
 import { readLandingPayload } from "../handoff.js"
 
@@ -58,17 +61,18 @@ function makeScene() {
   renderer.shadowMap.type = T.PCFShadowMap
   renderer.toneMapping = T.ACESFilmicToneMapping
   const scene = new T.Scene()
-  const camera = new T.PerspectiveCamera(41, 1, .08, 50000)
+  const camera = new T.PerspectiveCamera(48, 1, .08, 50000)
   camera.position.set(29, 35, 35)
   const controls = new OrbitControls(camera, canvas)
   controls.enableDamping = true
-  controls.maxPolarAngle = Math.PI / 2.35
-  controls.minDistance = 18
-  controls.maxDistance = 93
+  controls.maxPolarAngle = Math.PI / 2 - .015
+  controls.minDistance = 2
+  controls.maxDistance = 380
   const environment = createEnvironment(scene, camera, canvas)
-  const terrain = jezeroLandscape()
-  scene.add(terrain)
-  const ground = addSurface(scene)
+  const ova = createOvaWorld(scene)
+  const navigation = createOvaNavigation(ova)
+  const ground = ova.ground
+  let currentView = 'panorama'
   function groundY(x, z) {
     return ground.userData.heightAt(x, z)
   }
@@ -85,8 +89,6 @@ function makeScene() {
   const railShort = new T.BoxGeometry(.035, .025, roofSize.z * 2)
   const postGeometry = new T.BoxGeometry(.085, 1, .085)
   const foundationGeometry = new T.BoxGeometry(1, 1, 1)
-  let habitatAsset
-  let panelAsset
   let roofHeight = 2.16
 
   const objects = new T.Group()
@@ -109,8 +111,8 @@ function makeScene() {
     deposits.add(rock)
   }
   const reference = new T.Group()
-  reference.position.set(-9.5, .02, 4)
-  reference.rotation.y = -.38
+  reference.position.set(5.75, .02, 14.5)
+  reference.rotation.y = -.6
   scene.add(objects, deposits, reference)
   const crewModels = new Map()
   const loadedCharacters = new Set()
@@ -120,16 +122,16 @@ function makeScene() {
   const crewColors = [0xd9d2bf, 0xb88052, 0xa9b9c2]
   state.crew.forEach((person, index) => {
     const actor = new T.Group()
-    actor.position.set([-6, -2, 6][index], 0, 12.8)
+    actor.position.set([-2.1, -5.4, -2.1][index], 0, [16.1, 13.9, 16.1][index])
     actor.position.y = groundY(actor.position.x, actor.position.z)
+    actor.rotation.y = .12
     actor.add(placeholderAstronaut(crewColors[index]))
     scene.add(actor)
     crewModels.set(index, actor)
   })
   const models = new Map()
   function model(type) {
-    if (!models.has(type)) models.set(type, (type === "habitat" && habitatAsset) ||
-      (type === "solarPanel" && panelAsset) || moduleModel(type))
+    if (!models.has(type)) models.set(type, moduleModel(type))
     return models.get(type).clone()
   }
   const roofs = new Map()
@@ -161,8 +163,10 @@ function makeScene() {
       Math.abs(x - area.x) < area.halfX + buffer && Math.abs(z - area.z) < area.halfZ + buffer)
   }
   function collides(x, z) {
+    if (navigation.inside) return navigation.collides(x,z)
     if (roofAccess) return true
-    if (Math.abs(x) > siteRadius || Math.abs(z) > siteRadius || occupied(x, z, .31)) return true
+    if (navigation.collides(x,z)) return true
+    if (occupied(x, z, .31)) return true
     // Metre-scale hull radius 5.8 + suited shoulder clearance. Keep the camera
     // outside the belly/engine envelope while allowing the +Z ladder approach.
     if (Math.hypot(x - crewLander.position.x, z - crewLander.position.z) < 6.18) return true
@@ -188,7 +192,7 @@ function makeScene() {
     } else pointer.set(0, 0)
     camera.updateMatrixWorld()
     ray.setFromCamera(pointer, camera)
-    const hits = ray.intersectObjects([ground, objects, deposits, ...hardware.filter(asset => asset.visible)], true)
+    const hits = ray.intersectObjects([ova.habitat, ground, objects, deposits, ...hardware.filter(asset => asset.visible)], true)
     const hit = hits.find(hit => hit.object.visible)
     if (!hit || (fps.active && hit.distance > 14)) return null
     if (hit.object.userData.deposit) {
@@ -205,12 +209,16 @@ function makeScene() {
   function inspect(target) {
     if (!target) return { error: "Kurulum için uygun bir yüzeye bak." }
     if (target.surface === "blocked") return { error: "Zemini veya yaşam modülünün üstündeki montaj alanını hedefle." }
+    if (navigation.inside) return {error:'İç mekânda modül kurulamaz. Hava kilidinden dışarı çık.'}
     const error = placementError(state, selected, target.position)
     if (error) return { error }
     const type = state.inventory.find(item => item.id === selected).type
     const { x, z, supportId } = target.position
     const size = footprints[type]
     if (!supportId) {
+      if (ova.blocksFootprint(x,z,size.x,size.z)) {
+        return {error:'Üs yapıları ve güneş tarlası çevresini açık bırak.'}
+      }
       if (hardware.some(asset => asset.visible && Math.abs(x - asset.position.x) < size.x + asset.userData.radius &&
         Math.abs(z - asset.position.z) < size.z + asset.userData.radius)) return { error: "NASA aracına çok yakın." }
       if (nodes.some(node => Math.abs(x - node.x) < size.x + .7 && Math.abs(z - node.z) < size.z + .7)) {
@@ -269,7 +277,10 @@ function makeScene() {
         : target?.item && (target.surface === "blocked" || !selected)
         ? modules[target.item.type].name + (canAccess ? " · R ile çatı görüşü" : "")
         : show ? candidate.error ?? (target.position.supportId ? "E · Çatıya monte et" : "E · Zemine yerleştir") : ""
-      if (aimLabel.textContent !== label) aimLabel.textContent = label
+      const airlock = navigation.nearAirlock(camera.position.x,camera.position.z)
+        ? (navigation.inside ? 'E · Hava kilidinden çık' : 'E · Hava kilidinden gir') : label
+      if (aimLabel.textContent !== airlock) aimLabel.textContent = airlock
+
     }
   }
 
@@ -300,7 +311,12 @@ function makeScene() {
   const fps = createFirstPerson(canvas, camera, {
     onMode(active) {
       roofAccess = undefined
+      navigation.reset()
       controls.enabled = !active
+      if (active) {
+        currentView = 'astronaut'
+        fps.teleport(camera.position, -.04, -.65)
+      }
       environment.setFPS(active)
       viewport.classList.toggle("fps", active)
       byId("view-mode").textContent = active ? "Üs planına dön" : "Astronotun gözünden gez"
@@ -311,7 +327,15 @@ function makeScene() {
       redrawScene()
     },
     onAim: () => drawTarget(targetAt()),
-    interact: () => commit(targetAt()),
+    interact: () => {
+      const transition = navigation.interact(camera.position.x,camera.position.z)
+      if (transition) {
+        fps.teleport(new T.Vector3(transition.x,transition.y+1.65,transition.z),0,transition.yaw)
+        status.textContent=transition.message
+        return
+      }
+      if (!navigation.inside) commit(targetAt())
+    },
     accessRoof(lookFrom) {
       if (roofAccess) {
         lookFrom(roofAccess, -.22)
@@ -331,9 +355,9 @@ function makeScene() {
       status.textContent = "Nişanı çatıda istediğin noktaya getir. E ile yerleştir, R ile in."
     },
     collides,
-    groundY: (x, z) => roofAccess ? roofAccess.top : groundY(x, z),
+    groundY: (x, z) => navigation.inside ? ova.floorY : roofAccess ? roofAccess.top : groundY(x, z),
     onStep(x, z, yaw, running) {
-      if (!roofAccess) tracks.step(x, z, yaw)
+      if (!roofAccess && !navigation.inside) tracks.step(x, z, yaw)
       environment.step(running)
     },
   })
@@ -407,9 +431,10 @@ function makeScene() {
   window.render_game_to_text = () => JSON.stringify({
     scene: "colony", coordinates: "metres; +X east, +Y up, -Z north", state,
     storm: Boolean(state.timeline.at(-1)?.storm), activeTask: status.textContent,
+    world:'duz-ova', view:currentView, insideHabitat:navigation.inside, assets:{crew:Boolean(teamCharacter),rover:reference.children.length>0},
     fps: fps.active, player: fps.telemetry, environment: environment.telemetry,
     placement: { selected: selected ?? null, preview: preview.visible, marker: marker.visible },
-    rendering: frameStats,
+    rendering: { ...frameStats, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, pixelRatio: renderer.getPixelRatio() },
   })
   window.advanceTime = async ms => {
     if (!Number.isFinite(ms) || ms < 0) throw new RangeError("Invalid time step")
@@ -523,36 +548,6 @@ function makeScene() {
 
   async function loadNASA() {
     const targets = [
-      ["habitat-data", gltf => {
-        habitatAsset = fitModel(gltf.scene, 5.12)
-        roofHeight = new T.Box3().setFromObject(habitatAsset).max.y + .16
-        if (models.has("habitat")) retiredCharacters.push(models.get("habitat"))
-        models.delete("habitat")
-      }],
-      ["insight-data", gltf => {
-        const leftPanel = gltf.scene.getObjectByName("panel_l_root")
-        if (!leftPanel) throw new Error("InSight solar array missing")
-        gltf.scene.updateMatrixWorld(true)
-        const detached = leftPanel.clone()
-        leftPanel.matrixWorld.decompose(detached.position, detached.quaternion, detached.scale)
-        panelAsset = fitModel(detached, 2.18)
-        if (models.has("solarPanel")) retiredCharacters.push(models.get("solarPanel"))
-        models.delete("solarPanel")
-        const lander = fitModel(gltf.scene, 6)
-        lander.position.set(9.5, groundY(9.5, -6), -6)
-        lander.rotation.y = .3
-        lander.userData.radius = 3
-        scene.add(lander)
-        hardware.push(lander)
-      }],
-      ["ingenuity-data", gltf => {
-        const helicopter = fitModel(gltf.scene, 1.2)
-        helicopter.position.set(-6.5, groundY(-6.5, .5), .5)
-        helicopter.rotation.y = .63
-        helicopter.userData.radius = .68
-        scene.add(helicopter)
-        hardware.push(helicopter)
-      }],
       ["team-crew-data", gltf => {
         teamCharacter = fitCharacter(gltf.scene)
         for (const [index, actor] of crewModels) {
@@ -569,7 +564,7 @@ function makeScene() {
     if (disposed) return
     redrawScene()
     byId("nasa-status").textContent = results.every(item => item.status === "fulfilled")
-      ? "NASA modelleri sahnede · HDU, InSight ve Ingenuity"
+      ? "Düz Ova · NASA astronotları ve Perseverance"
       : "Bazı NASA modelleri açılamadı. İlgili parça için geçici model kullanılıyor."
   }
 
@@ -582,7 +577,7 @@ function makeScene() {
       disposed = true; lifecycle.abort(); taskObserver.disconnect()
       renderer.setAnimationLoop(null)
       if (gpuFence) gl.deleteSync(gpuFence)
-      observer.disconnect(); fps.dispose(); environment.dispose(); tracks.dispose(); controls.dispose()
+      observer.disconnect(); fps.dispose(); ova.dispose(); environment.dispose(); tracks.dispose(); controls.dispose()
       window.render_game_to_text = previousTextHook; window.advanceTime = previousAdvanceHook
       const geometries = new Set(), materials = new Set(), textures = new Set()
       scene.traverse(part => {
@@ -592,7 +587,7 @@ function makeScene() {
           for (const value of Object.values(material)) if (value?.isTexture) textures.add(value)
         }
       })
-      for (const source of [...models.values(), habitatAsset, panelAsset, teamCharacter, ...retiredCharacters]) source?.traverse(part => {
+      for (const source of [...models.values(), teamCharacter, ...retiredCharacters]) source?.traverse(part => {
         if (part.geometry) geometries.add(part.geometry)
         for (const material of [part.material].flat()) if (material) {
           materials.add(material)
@@ -604,12 +599,22 @@ function makeScene() {
       for (const resource of [...geometries, ...materials, ...textures]) resource.dispose()
       renderer.dispose()
     },
+    setView(name) {
+      const view = ova.views[name]
+      if (!view) return
+      if (fps.active) fps.setActive(false)
+      navigation.reset(); roofAccess=undefined; currentView=name
+      camera.position.fromArray(view.position); controls.target.fromArray(view.target); controls.update()
+      for (const button of document.querySelectorAll('[data-ova-view]')) button.setAttribute('aria-pressed',String(button.dataset.ovaView===name))
+      status.textContent=name==='solar' ? 'Güneş tarlası · 42 masa · 420 panel' : name==='pad' ? 'Modül kurulum alanı · Zemine tıklayarak yerleştir.' : 'Düz Ova · İhan’ın Mars üssü'
+    },
     toggleView() {
       if (!fps.active) fps.respawn(crewActor(playerId).position, arrivalYaw)
       fps.setActive(!fps.active)
     },
     selectPlayer() {
       roofAccess = undefined
+      navigation.reset()
       fps.respawn(crewActor(playerId).position, arrivalYaw)
       redrawScene()
     },
@@ -640,7 +645,8 @@ function makeScene() {
       feedback.textContent = "NASA modeli yükleniyor…"
       try {
         const gltf = await parseSceneModel(await loadBytes("rover-data", lifecycle.signal))
-        const rover = fitModel(gltf.scene, 3)
+        const rover = new T.Group()
+        rover.add(fitCharacter(prepareOvaRover(gltf.scene), 2.18))
         reference.position.y = groundY(reference.position.x, reference.position.z)
         reference.add(rover)
         reference.userData.radius = 1.55
@@ -663,10 +669,7 @@ function makeScene() {
 // Integration (Emre): models are served from public/models/colony instead of base64 blocks
 // embedded in the single-file build; Draco decoder comes from public/draco.
 const modelFiles = {
-  "habitat-data": "habitat-nasa.glb",
-  "insight-data": "insight.glb",
   "rover-data": "perseverance.glb",
-  "ingenuity-data": "ingenuity.glb",
   "team-crew-data": "team-astronaut.glb",
 }
 async function loadBytes(id, signal) {
@@ -684,28 +687,12 @@ async function parseModel(bytes) {
   }
 }
 
-function fitModel(model, width) {
-  // GAME ASSUMPTION: scene presentation widths from the teammate's integration demo.
-  const group = new T.Group()
-  group.add(model)
-  const bounds = new T.Box3().setFromObject(model)
-  const center = bounds.getCenter(new T.Vector3())
-  const size = bounds.getSize(new T.Vector3())
-  const scale = width / Math.max(size.x, size.z)
-  model.scale.multiplyScalar(scale)
-  model.position.multiplyScalar(scale)
-  model.position.add(new T.Vector3(-center.x * scale, -bounds.min.y * scale, -center.z * scale))
-  model.traverse(part => { if (part.isMesh) part.castShadow = part.receiveShadow = true })
-  return batchStaticModel(prepareSurfaceMaterials(group))
-}
-
-
-function fitCharacter(character) {
+function fitCharacter(character, height = 1.85) {
   const bounds = new T.Box3().setFromObject(character)
   const size = bounds.getSize(new T.Vector3())
   const center = bounds.getCenter(new T.Vector3())
   if (!(size.y > 0)) throw new Error("Karakter geometrisi bulunamadı.")
-  const scale = 1.88 / size.y // GAME ASSUMPTION: displayed suited astronaut height in metres.
+  const scale = height / size.y // GAME ASSUMPTION: display height in metres, recovered from the Düz Ova demo.
   character.scale.multiplyScalar(scale)
   character.position.multiplyScalar(scale)
   character.position.add(new T.Vector3(-center.x * scale, -bounds.min.y * scale, -center.z * scale))
@@ -1032,6 +1019,8 @@ try {
     }
   }
   byId("rover").onclick = () => sceneView.loadRover()
+  for (const button of document.querySelectorAll('[data-ova-view]')) button.addEventListener('click',()=>sceneView.setView(button.dataset.ovaView),{signal:uiLifecycle.signal})
+  sceneView.setView('panorama')
   sceneView.loadNASA()
   sceneView.loadRover()
   if (document.querySelector("main").dataset.startView === "fps") sceneView.toggleView()

@@ -24,8 +24,8 @@ export function createFirstPerson(canvas, camera, { onMode, onAim, interact, acc
     vertical = createSuitMotion(); walkingTime = 0; distanceSinceStep = 0
     if (active) { camera.position.copy(spawn); look.set(-.04, spawnYaw, 0); turn(0,0) }
   }
-  function lookFrom(position, pitch) {
-    camera.position.copy(position); look.x = pitch; vertical = createSuitMotion(); turn(0,0); camera.updateMatrixWorld()
+  function lookFrom(position, pitch, yaw = look.y) {
+    camera.position.copy(position); look.x = pitch; look.y = yaw; vertical = createSuitMotion(); turn(0,0); camera.updateMatrixWorld()
   }
   function setActive(value) {
     if (active === value) return
@@ -96,7 +96,7 @@ export function createFirstPerson(canvas, camera, { onMode, onAim, interact, acc
   return {
     get active() { return active },
     get telemetry() { return {x:camera.position.x,y:camera.position.y,z:camera.position.z,grounded:vertical.grounded} },
-    setActive, respawn,
+    setActive, respawn, teleport: lookFrom,
     update(delta, updateAim = true) {
       if (!active) return
       accumulator += delta

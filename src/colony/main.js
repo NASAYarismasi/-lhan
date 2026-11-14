@@ -1,3 +1,4 @@
+import { bindEclss } from './ova/eclss.mjs';
 // Colony page entry. Scene, FPS and colony rules: İhan (src/colony/scene, mars-koloni.mjs, mars-atolye.mjs).
 import { createColony, createColonyFromFlight, exampleLanding } from './mars-koloni.mjs';
 import { readLandingPayload } from './handoff.js';
@@ -43,6 +44,7 @@ const canvas = document.getElementById('scene');
 const toggles = [...document.querySelectorAll('[data-drawer]')];
 const drawers = [...document.querySelectorAll('.colony-drawer')];
 const events = new AbortController();
+const disposeEclss = bindEclss();
 const listen = (element, type, handler, options = {}) => element.addEventListener(type, handler, { ...options, signal: events.signal });
 let activeDrawer = null;
 
@@ -120,4 +122,5 @@ for (const button of document.querySelectorAll('[data-realism]')) {
 }
 
 // Full-page navigation owns this controller; release listeners on teardown.
-listen(window, 'pagehide', event => { if (!event.persisted) events.abort(); });
+listen(window, 'pagehide', event => { if (!event.persisted) { events.abort(); disposeEclss(); } });
+if (import.meta.hot) import.meta.hot.dispose(() => {events.abort(); disposeEclss();});
