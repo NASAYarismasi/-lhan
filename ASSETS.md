@@ -91,3 +91,14 @@ Gömülü Draco/WASM tekrar dağıtılmadı; mevcut `public/draco/` Apache-2.0 �
 Düz Ova, yukarıda tarihsel olarak anlatılan MOLA bölgesel ufku / krater ekosisteminin **aktif koloni sahnesindeki yerini alır**; eski NASA HDU, InSight ve Ingenuity sahneye yüklenmez. Eski dosyalar ve bağımsız testleri depoda korunur. Düz Ova gerçek Jezero DEM’i değildir. 620 m düzlüğün çok küçük yükseklik dalgaları, renkleri ve 108 ufuk tepesi kaynaktan korunur; 36.600 taş/çakıl 6.550 instance’a, zemin ağı 320×320’den 96×96’ya indirilir. Güneş tarlası aynı yerleşimle beş instanced draw kullanır. Güneş, gökyüzü, yıldızlar, sis, gün/gece ve kafa lambası ortak `environment.mjs` tarafından yönetilir.
 
 Rover lens adaptation: `src/colony/ova/assets.mjs` disables screen-space transmission on three tiny NASA camera-lens materials and uses translucent glass instead. Meshes, textures, scales and source GLB bytes are unchanged; this removes an extra whole-scene refraction pass on software GL.
+
+## Selective Emre integration (097c3aa)
+
+- `team-astronaut-walk.glb`: NASA astronaut derivative with articulated shoulder/hip groups; prepared by Emre (`scripts/pose-walker.py` in source branch), same NASA media conditions as the original astronaut.
+- `perseverance-wheels.glb`: existing NASA/JPL Perseverance model with separated wheel hubs; prepared by Emre (`scripts/split-rover-wheels.py`), original NASA conditions retained.
+- `public/art/eva-tablet-grip-*.svg`: Emre branch original EVA grip artwork, CC0 1.0. Samet display and local notifications retained.
+- Communications tower, facility computers and particle effects: team procedural source from Emre `feature/pro-rebuild` commit 097c3aa; local facility positions and original resource calculations preserved.
+
+Battery enclosure and cable terminal geometry: adapted visual portions of Emre/İhan solar-farm and power-cables sources at 097c3aa. Their new microgrid rules are not imported. Long cable runs are buried and not drawn. Rover dock is a new procedural concept; 250 W charging is a game assumption, with delivered kWh deducted from the existing support energy budget.
+
+Power integration preview uses NASAYarismasi/-lhan branch son, commit 97bc753. Original power, panel-production, recovery and projection modules preserved.

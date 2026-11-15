@@ -141,7 +141,7 @@ export function createEnvironment(scene, camera, canvas) {
   document.addEventListener('keydown',event=>{
     if(event.repeat || event.ctrlKey || event.metaKey || event.altKey || /INPUT|TEXTAREA|SELECT/.test(event.target?.tagName) || event.target?.isContentEditable) return
     if(event.code==='KeyL') { manualLamp=!lampOn; updateLighting(true); emit(true) }
-    if(event.code==='KeyM') toggleAudio()
+
     if(event.code==='BracketRight' || event.code==='BracketLeft') {
       warpIndex=T.MathUtils.clamp(warpIndex+(event.code==='BracketRight'?1:-1),0,warps.length-1)
       event.preventDefault(); updateLighting(true); emit(true)

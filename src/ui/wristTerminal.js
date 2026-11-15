@@ -15,6 +15,7 @@ const resourceNames = { oxygen: 'O₂ / OKSİJEN', water: 'SU', food: 'GIDA' };
 
 function screenMarkup(data, screen) {
   const colony = data.mode === 'colony';
+  if(colony) return colonyDashboard(data,screen);
   if (screen === 1) {
     return `<div class="ares-resource-grid">${Object.entries(resourceNames).map(([key, label]) => {
       const resource = data.resources?.[key] ?? {};
@@ -40,6 +41,16 @@ function screenMarkup(data, screen) {
     <dl>${row(colony ? 'Hava durumu' : 'Kabin güç hattı', colony ? data.stormLabel : data.power?.enabled === null ? 'Veri bekleniyor' : data.power?.enabled ? 'Devrede' : 'Kapalı')}${row(colony ? 'Aktif görev' : 'Sonraki olay', data.nextEvent)}</dl>`;
 }
 
+function colonyDashboard(data,screen) {
+  const t=data.lifeSupport??{}, air=t.air??{},water=t.water??{},energy=data.energy??{};
+  const grid=t.electrical, battery=grid?.state?.battery??energy.battery, batteryUnit=grid?'kWh':'birim';
+  const tile=(label,value,note,tone='')=>`<article class="ops-metric ${tone}"><small>${escape(label)}</small><strong>${escape(value)}</strong><span>${escape(note)}</span></article>`;
+  if(screen===3)return `<div class="ops-heading"><b>MÜRETTEBAT</b><span>${data.livingCrew} kişi görevde</span></div><div class="ares-crew">${(data.crew??[]).map(p=>`<article><div><b>${escape(p.name)}</b><span>${escape(p.roleLabel)}</span></div><strong>${p.alive?reading(p.health,'%',0):'YAŞAM BULGUSU YOK'}</strong></article>`).join('')}</div>`;
+  if(screen===2)return `<div class="ops-heading"><b>ENERJİ MERKEZİ</b><span>Canlı tesis telemetrisi</span></div><div class="ops-grid">${tile('TESİSLERE AYRILAN GÜÇ',reading(t.availableKW,'kW'),'Yaşam desteği bütçesi')}${tile('TESİS TÜKETİMİ',reading(t.powerKW,'kW'),'Hava + su sistemleri')}${tile('BATARYADA DEPOLANAN',reading(battery,batteryUnit),grid?'5 grup · toplam 180 kWh':'Koloni enerji birimi · kWh değildir','amber')}${tile('HARCANAN ENERJİ',reading(t.spentKWh,'kWh'),'Bu sol · yaşam desteği','amber')}</div><dl>${row('Son sol güneş üretimi',reading(energy.generation,'birim'))}${row('Son sol batarya kapasitesi',reading(energy.capacity,'birim'))}</dl>`;
+  if(screen===1)return `<div class="ops-heading"><b>YAŞAM DESTEĞİ</b><span>Üretim ve rezerv ayrı izlenir</span></div><div class="ops-grid">${tile('ÜRETİLEN SU',reading(water.extractedL,'L'),'Buzdan çıkarılan · toplam','blue')}${tile('REZERV SU',reading(t.waterL,'L'),'Temiz su deposu','blue')}${tile('ÜRETİLEN O₂',reading(air.generatedKg,'kg'),'Oksijen üretimi · toplam')}${tile('REZERV O₂',reading(t.oxygenKg,'kg'),'Kullanılabilir oksijen')}</div><dl>${row('Geri kazanılan su',reading(water.recoveredL,'L'))}${row('Atık su',reading(water.wasteL,'L'))}${row('Giderilen CO₂',reading(air.removedCO2Kg,'kg'))}</dl>`;
+  return `<div class="ops-heading"><b>ÜS KONTROL MERKEZİ</b><span>LMST ${escape(data.lmst??'—')}</span></div><div class="ops-grid">${tile('REZERV SU',reading(t.waterL,'L'),`Üretilen ${reading(water.extractedL,'L')}`,'blue')}${tile('REZERV OKSİJEN',reading(t.oxygenKg,'kg'),`Üretilen ${reading(air.generatedKg,'kg')}`)}${tile('TESİS GÜCÜ',reading(t.powerKW,'kW'),`Bütçe ${reading(t.availableKW,'kW')}`,'amber')}${tile('BATARYA',reading(battery,batteryUnit),grid?'5 grup · toplam 180 kWh':'Koloni enerji birimi','amber')}</div><div class="ops-task"><small>AKTİF GÖREV</small><b>${escape(data.activeTask)}</b></div>`;
+}
+
 /**
  * @param {{root: HTMLElement, getData: () => object|null, onToggle?: (raised: boolean) => void}} options
  * getData returns flightWristData()/colonyWristData(). onToggle is optional host UI synchronization.
@@ -50,22 +61,25 @@ export function mountWristTerminal({ root, getData, onToggle = () => {} }) {
   host.className = 'ares-wrist';
   host.setAttribute('aria-label', 'ARES kol bilgisayarı');
   host.setAttribute('aria-hidden', 'true');
-  host.innerHTML = `<div class="ares-arm" inert>
-    <div class="ares-sleeve" aria-hidden="true"><i></i><span>ARES / EVA</span></div>
-    <div class="ares-glove" aria-hidden="true"><i></i><i></i><i></i></div>
-    <div class="ares-cuff" aria-hidden="true"></div><div class="ares-strap ares-strap-a" aria-hidden="true"></div><div class="ares-strap ares-strap-b" aria-hidden="true"></div>
+  const artBase = `${import.meta.env.BASE_URL}art/`;
+  host.innerHTML = `<div class="ares-arm" inert><div class="ares-hold">
+    <img class="ares-grip ares-grip-back" src="${artBase}eva-tablet-grip-back.svg" alt="" aria-hidden="true" draggable="false" width="900" height="620">
     <section class="ares-case"><i class="ares-screw ares-screw-tl"></i><i class="ares-screw ares-screw-tr"></i><i class="ares-screw ares-screw-bl"></i><i class="ares-screw ares-screw-br"></i>
+      <div class="ares-hardware" aria-hidden="true"><span>ARES / EVA</span><i></i><i></i><i></i><b>IV</b></div>
       <div class="ares-screen"><header class="ares-header"><b><i></i> ARES <span>MARK-IV</span></b><button type="button" class="ares-close" aria-label="Kolu indir">ESC ×</button></header>
       <div class="ares-location"><span data-ares-phase></span><time data-ares-clock></time></div>
       <nav class="ares-tabs" aria-label="Terminal ekranları">${['DURUM', 'YAŞAM DESTEĞİ', 'SEYİR', 'MÜRETTEBAT'].map((name, index) => `<button type="button" data-ares-tab="${index}" aria-pressed="${index === 0}">${name}</button>`).join('')}</nav>
-      <div class="ares-content"></div><footer class="ares-footer"><span>ALT / Q · KOLU İNDİR</span><span>TAB / TEKERLEK · SAYFA</span><b data-ares-page>01 / 04</b></footer></div>
-      <div class="ares-case-label" aria-hidden="true">EVA WRIST TERMINAL <span>ARES—01</span></div>
-    </section></div>`;
+      <p class="ares-notice" aria-live="polite"></p><div class="ares-content"></div><div class="ares-panel-slot" hidden></div><footer class="ares-footer"><span>TAB · TABLETİ KAPAT</span><span>TEKERLEK · SAYFA</span><b data-ares-page>01 / 04</b></footer></div>
+      <div class="ares-case-label" aria-hidden="true">EVA · GÖREV TERMİNALİ <span>ARES—01</span></div>
+    </section>
+    <img class="ares-grip ares-grip-front" src="${artBase}eva-tablet-grip-front.svg" alt="" aria-hidden="true" draggable="false" width="900" height="620">
+    </div></div>`;
   root.append(host);
   const arm = host.querySelector('.ares-arm'), content = host.querySelector('.ares-content');
   const phase = host.querySelector('[data-ares-phase]'), clock = host.querySelector('[data-ares-clock]');
   const page = host.querySelector('[data-ares-page]'), tabs = [...host.querySelectorAll('[data-ares-tab]')];
-  let raised = false, screen = 0, disposed = false, timer = null, lastMarkup = '';
+  let raised = false, screen = 0, disposed = false, timer = null, noticeTimer=null, lastMarkup = '';
+  const notice=host.querySelector('.ares-notice');
   const removers = [];
   const on = (target, type, handler, options) => {
     const listenerOptions = typeof options === 'boolean' ? { capture: options } : options;
@@ -74,16 +88,17 @@ export function mountWristTerminal({ root, getData, onToggle = () => {} }) {
   };
   function update() {
     if (!raised || disposed) return;
-    const data = getData();
+    const data = getData();host.setAttribute('data-light',data?.mode==='colony'?'mars':'cabin');
     const markup = data ? screenMarkup(data, screen) : '<p class="ares-note">Telemetri bağlantısı bekleniyor.</p>';
     if (markup !== lastMarkup) { content.innerHTML = markup; lastMarkup = markup; }
     phase.textContent = data?.mode === 'colony' ? `JEZERO · SOL ${format(data.sol, 0)}` : data?.phaseLabel ?? 'VERİ BEKLENİYOR';
     // Samet's live clock remains a clearly labelled Earth UTC clock, separate from MET / LMST.
     clock.textContent = `UTC ${new Date().toISOString().slice(11, 19)}`;
-    tabs[2].textContent = data?.mode === 'colony' ? 'KOLONİ' : 'SEYİR';
+    tabs.forEach((tab,i)=>tab.textContent=(data?.mode==='colony'?['GENEL BAKIŞ','SU & OKSİJEN','ENERJİ','MÜRETTEBAT']:['DURUM','YAŞAM DESTEĞİ','SEYİR','MÜRETTEBAT'])[i]);
   }
   function setRaised(value, notify = false) {
     if (disposed || raised === Boolean(value)) return;
+    win.clearTimeout(noticeTimer);host.classList.remove('is-peeking');
     raised = Boolean(value);
     host.classList.toggle('is-raised', raised);
     host.setAttribute('aria-hidden', String(!raised));
@@ -106,26 +121,21 @@ export function mountWristTerminal({ root, getData, onToggle = () => {} }) {
   }
   on(win, 'keydown', event => {
     const editable = /^(INPUT|TEXTAREA|SELECT)$/.test(event.target?.tagName) || event.target?.isContentEditable;
-    const alt = event.key === 'Alt' || ['AltLeft', 'AltRight'].includes(event.code);
-    const q = event.code === 'KeyQ' || event.key?.toLowerCase() === 'q';
     const close = event.key === 'Escape' || event.code === 'Escape';
     const tab = event.key === 'Tab' || event.code === 'Tab';
-    if (editable && !close || event.metaKey || event.ctrlKey || q && (event.altKey || event.shiftKey)) return;
-    if (!(alt || q || raised && (close || tab))) return;
+    if (editable && !close || event.metaKey || event.ctrlKey) return;
+    if (!(tab || raised && close)) return;
     // Capture before the flight's old Q action and the colony document-level FPS bindings.
     // Pointer lock is deliberately retained: Alt/Q/Tab work entirely from the keyboard.
     event.preventDefault(); event.stopImmediatePropagation();
     if (event.repeat) return;
-    if (alt || q) toggle();
+    if (tab) toggle();
     else if (close) setRaised(false, true);
-    else selectPage(screen + (event.shiftKey ? -1 : 1));
-  }, true);
-  on(win, 'keyup', event => {
-    // Suppress Alt's native menu activation on release as well as press.
-    if (event.key === 'Alt' || ['AltLeft', 'AltRight'].includes(event.code)) event.preventDefault();
+
   }, true);
   on(win, 'wheel', event => {
     if (!raised) return;
+    if(event.target?.closest?.('.ares-content,.ares-panel-slot,.ares-colony-actions'))return;
     event.preventDefault(); event.stopImmediatePropagation();
     if (event.deltaY) selectPage(screen + Math.sign(event.deltaY));
   }, { capture: true, passive: false });
@@ -133,11 +143,12 @@ export function mountWristTerminal({ root, getData, onToggle = () => {} }) {
   tabs.forEach((tab, index) => on(tab, 'click', () => selectPage(index)));
   return {
     toggle, setRaised, update,
+    notify(message){if(disposed||!message)return;notice.textContent=message;win.clearTimeout(noticeTimer);host.classList.add('has-notice');if(!raised){host.classList.add('is-peeking');host.setAttribute('aria-hidden','false');}noticeTimer=win.setTimeout(()=>{host.classList.remove('is-peeking','has-notice');if(!raised)host.setAttribute('aria-hidden','true');},3800);},
     get raised() { return raised; },
     get screen() { return screen; },
     dispose() {
       if (disposed) return;
-      disposed = true; win.clearInterval(timer);
+      disposed = true; win.clearInterval(timer);win.clearTimeout(noticeTimer);
       removers.forEach(remove => remove()); host.remove();
     },
   };

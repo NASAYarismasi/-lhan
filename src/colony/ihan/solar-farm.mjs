@@ -1,3 +1,6 @@
+import {drawGroupHmi} from './power/group-hmi.mjs';
+import {batchStaticLeaves} from '../scene/static-model.mjs';
+import {addPowerCables} from './power-cables.mjs';
 export function addSolarFarm(T, scene, terrainHeight, obstacles) {
   // Adapted from Samet's solar preview in 0e3352a87baebff83558045dcb539462d3ecf4f7.
   const farm = new T.Group()
@@ -36,9 +39,11 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
   const face = new T.PlaneGeometry(5,4).rotateX(-Math.PI/2)
   const column = new T.BoxGeometry(.13,1,.13)
   const footing = new T.BoxGeometry(.44,.14,.44)
+  const tables=[];
   for (let row = 0; row < 6; row++) for (let col = 0; col < 7; col++) {
     const x = (col - 3) * 6, z = (row - 2.5) * 8
     const y = terrainHeight(x0 + x, z0 + z) - level
+    tables.push({x,y,z});
     const table = new T.Group()
     table.position.set(x,y+2.25,z)
     table.rotation.x = .55
@@ -57,14 +62,67 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
       new T.Vector3(x0+x-2.68,level+y,z0+z-1.93),
       new T.Vector3(x0+x+2.68,level+y+3.4,z0+z+1.93)))
   }
-  const cabinet = new T.BoxGeometry(2.8,2.3,1.6)
-  for (let i = 0; i < 10; i++) {
-    const x = 23 + 4 * Math.floor(i / 5), z = (i % 5 - 2) * 4.5
-    const ground = terrainHeight(x0+x,z0+z)
-    const mesh = part(farm,cabinet,frame,x,ground-level+1.15,z)
-    mesh.updateWorldMatrix(true,false)
-    obstacles.push(new T.Box3().setFromObject(mesh).expandByScalar(.2))
+  instanceByGeometry(T,farm);
+  const brushes=new T.InstancedMesh(new T.BoxGeometry(4.95,.08,.13),new T.MeshStandardMaterial({color:0x4b5150,roughness:.8}),42);
+  brushes.name="SolarCleaningBrushes";
+  brushes.instanceMatrix.setUsage(T.DynamicDrawUsage);farm.add(brushes);
+  const brushTransform=new T.Object3D();let lastDust=null,sweepAge=100;
+  const cabinet=new T.BoxGeometry(2.8,2.3,1.6)
+  const enclosure=new T.MeshStandardMaterial({color:0xa4aa9e,metalness:.42,roughness:.66})
+  const terminal=new T.MeshStandardMaterial({color:0x252d32,roughness:.76})
+  const hazard=new T.MeshStandardMaterial({color:0xd0a14a,roughness:.71})
+  const display=document.createElement("canvas")
+  display.width=512
+  display.height=256
+  const screen=display.getContext("2d")
+  const displayTexture=new T.CanvasTexture(display)
+  displayTexture.colorSpace=T.SRGBColorSpace
+  const displayMaterial=new T.MeshBasicMaterial({map:displayTexture})
+  const hmi=[];
+  const inverters=[]
+  for(let i=0;i<10;i++) {
+    const x=23+4*Math.floor(i/5),z=(i%5-2)*4.5
+    const ground=terrainHeight(x0+x,z0+z)
+    const rack=new T.Group()
+    inverters.push({x,y:ground-level,z})
+    rack.position.set(x,ground-level,z)
+    farm.add(rack)
+    part(rack,cabinet,enclosure,0,1.34,0)
+    part(rack,new T.BoxGeometry(2.9,.19,1.71),terminal,0,.17,0)
+    part(rack,new T.BoxGeometry(2.72,2.12,.06),terminal,0,1.34,.81)
+    for(const side of [-.68,.68]) {
+      part(rack,new T.BoxGeometry(1.29,2.05,.07),enclosure,side,1.34,.856)
+      part(rack,new T.BoxGeometry(.06,.32,.07),terminal,side*.28,1.25,.91)
+      for(let slot=0;slot<6;slot++) part(rack,new T.BoxGeometry(.85,.035,.025),terminal,side,.50+slot*.083,.903)
+    }
+    part(rack,new T.BoxGeometry(.18,.14,.04),hazard,-.88,1.76,.91)
+    if(i<5){
+      const canvas=document.createElement('canvas');canvas.width=768;canvas.height=384;
+      const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;
+      hmi.push({canvas,texture,material:new T.MeshBasicMaterial({map:texture})});
+    }
+    const monitor=part(rack,new T.PlaneGeometry(.91,.455),hmi[i%5].material,.67,1.91,.908);
+    monitor.castShadow=false
+    part(rack,new T.BoxGeometry(1.05,1.25,.56),terminal,-.63,.68,1.51)
+    part(rack,new T.BoxGeometry(.94,1.13,.06),enclosure,-.63,.68,1.82)
+    part(rack,new T.BoxGeometry(.64,.075,.035),hazard,-.63,1.1,1.86)
+    for(let vent=0;vent<6;vent++) part(rack,new T.BoxGeometry(.68,.04,.035),terminal,-.63,.45+vent*.07,1.86)
+    const label=document.createElement("canvas")
+    label.width=256; label.height=80
+    const ctx=label.getContext("2d")
+    ctx.fillStyle="#263033";ctx.fillRect(0,0,256,80)
+    ctx.fillStyle="#ddf1ed";ctx.font="bold 30px monospace";ctx.fillText((i+1)+" / DC > AC",18,35)
+    ctx.font="23px monospace";ctx.fillText(i<2?"42 / AC BARA":"42 / AC BARA",25,66)
+    const texture=new T.CanvasTexture(label)
+    texture.colorSpace=T.SRGBColorSpace
+    part(rack,new T.PlaneGeometry(.68,.21),new T.MeshBasicMaterial({map:texture}),-.63,.93,1.87)
+    rack.updateWorldMatrix(true,true)
+    obstacles.push(new T.Box3().setFromObject(rack).expandByScalar(.12))
   }
+  screen.fillStyle='#101b22';screen.fillRect(0,0,512,256);screen.fillStyle='#d6f0ed';screen.font='28px monospace';screen.fillText('KOLONI BATARYASI',24,48);screen.fillText('YER ALTI BESLEME',24,100);displayTexture.needsUpdate=true;
+  const wiring=addPowerCables(T,farm,(x,z)=>terrainHeight(x0+x,z0+z)-level,{greenhouse:{x:26-x0,z:-11-z0},water:{x:64-x0,z:-26-z0}},tables,inverters);
+  wiring.setClosed(true);
+  batchStaticLeaves(farm);
   // Host adaptation: the weather buttons only exist on İhan's stand-alone page (and not in node tests).
   const weatherButtons = typeof document?.querySelectorAll === "function" ? document.querySelectorAll("[data-solar-weather]") : []
   const update = (factor) => {
@@ -78,8 +136,21 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
     for (const button of weatherButtons) button.addEventListener("click", () => update(Number(button.dataset.solarWeather)))
     update(1)
   }
-  instanceByGeometry(T, farm)
-  return {farm, level, x0, z0}
+  return {farm,level,x0,z0,framePower(dt,dust){
+    if(lastDust!==null&&dust<lastDust-.02)sweepAge=0;
+    lastDust=dust;sweepAge+=dt;
+    const stroke=sweepAge<6?Math.sin(Math.min(1,sweepAge/6)*Math.PI):0;
+    tables.forEach((table,index)=>{
+      brushTransform.position.set(table.x,table.y+2.25,table.z);
+      brushTransform.rotation.set(.55,0,0);
+      brushTransform.translateY(.12);brushTransform.translateZ(-1.95+stroke*3.9);
+      brushTransform.updateMatrix();brushes.setMatrixAt(index,brushTransform.matrix);
+    });
+    brushes.instanceMatrix.needsUpdate=true;
+  },updatePowerDisplay(groups){
+    hmi.forEach((screen,i)=>{const index=i%5;const g=groups[index];if(!g)return;
+      drawGroupHmi(screen.canvas.getContext('2d'),index,{...g,energy:g.stored},false);screen.texture.needsUpdate=true;});
+  },updateBatteryDisplay(battery){screen.fillStyle='#101b22';screen.fillRect(0,0,512,256);screen.fillStyle='#d6f0ed';screen.font='30px monospace';screen.fillText('KOLONI BATARYASI',24,48);screen.font='42px monospace';screen.fillText(battery.toFixed(1)+' oyun birimi',24,120);screen.font='24px monospace';screen.fillText('DC / AC - YER ALTI HAT',24,190);displayTexture.needsUpdate=true;}}
 }
 
 // Host optimisation (Emre/Claude): the farm is static, so the ~390 meshes above (42 tables × back,

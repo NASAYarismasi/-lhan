@@ -1,3 +1,6 @@
+import {COMMS_PAD} from '../../data/colonyLayout.js';
+import {createRover} from './rover.mjs';
+import {createCommsStation} from '../ihan/comms-station.mjs';
 import * as T from "three"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js"
@@ -43,21 +46,17 @@ let sceneView
 let lastReport = colonyReport(state)
 const labels = { habitat: "Yaşam alanı", water: "Su", oxygen: "Oksijen", food: "Yiyecek", cleanAir: "CO₂ giderimi" }
 
-const pick = position => {
-  const issue = placementError(state, selected, position)
-  if (issue) { status.textContent = issue; return }
-  const name = modules[state.inventory.find(item => item.id === selected).type].name
-  state = placeModule(state, selected, position)
-  selected = undefined
-  update()
-  const surface = position.supportId ? "Çatı" : "Zemin"
-  const number = new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  status.textContent = name + " sıraya alındı. " + surface + " · X " + number.format(position.x) +
-    " m · Z " + number.format(position.z) + " m."
-}
+const pick = () => { selected=undefined } // Construction placement is disabled.
 
 function makeScene() {
   const lifecycle = new AbortController()
+  window.addEventListener('colony:power-command',event=>{
+    const {key,value}=event.detail??{};
+    if(['closed','drill','lamp','blackStart'].includes(key)&&typeof value==='boolean')lifeSupport.power.controls[key]=value;
+    if(key==='season'&&[0,90,180,270].includes(value))lifeSupport.power.controls.season=value;
+    if(key==='forecast')window.dispatchEvent(new CustomEvent('colony:power-report',{detail:lifeSupport.power.forecast()}));
+  },{signal:lifecycle.signal})
+  window.addEventListener('colony:analyze-soil',()=>ova.analyzeSoil(),{signal:lifecycle.signal})
   const listenerOptions = { signal: lifecycle.signal }
   let disposed = false
   // high-performance: on dual-GPU laptops (e.g. AMD iGPU + RTX 3050) this asks the browser for the discrete GPU.
@@ -76,8 +75,9 @@ function makeScene() {
   controls.maxDistance = 380
   const environment = createEnvironment(scene, camera, canvas)
   const ova = createOvaWorld(scene)
+  const comms=createCommsStation(scene,(x,z)=>ova.ground.userData.heightAt(x,z));
   // Host perf: İhan's domes/tunnels (~330 parts) and the 108 horizon mounds never move -> per-material batches.
-  for (const root of [scene.getObjectByName('Ihan_pressurised_habitat'), ...scene.children.filter(o => o.isGroup && o.children.length > 50 && o.children.every(c => c.isMesh && !c.children.length))]) if (root) batchStaticLeaves(root)
+  for (const root of [scene.getObjectByName('Ihan_pressurised_habitat'), ...scene.children.filter(o => o.isGroup && o.children.length > 50 && o.children.every(c => c.isMesh && !c.children.length))]) if (root) { const moving=new Set(); for(const lock of ova.locks) for(const leaf of [lock.inner,lock.outer])leaf.traverse(o=>moving.add(o));const privacy=root.getObjectByName("PrivacyDoor");if(privacy)privacy.traverse(o=>moving.add(o)); batchStaticLeaves(root,moving) }
   const navigation = createOvaNavigation(ova)
   const ground = ova.ground
   let currentView = 'panorama'
@@ -87,6 +87,7 @@ function makeScene() {
   // IHAN-SRC: keep real facilities outside the dome/lander clearances.
   const lifeSupport = createLifeSupportFacilities(scene, groundY, state)
   Object.assign(ova.views, lifeSupport.views)
+  ova.views.comms={position:[-16,12,30],target:[COMMS_PAD.x,6,COMMS_PAD.z]};
   const tracks = createFootprints(scene, groundY)
   const crewLander = batchStaticModel(createMarsLander())
   // Arrival apron north-west of the colony: the +Z hatch exits toward the pad.
@@ -128,6 +129,9 @@ function makeScene() {
   reference.position.set(5.75, .02, 14.5)
   reference.rotation.y = -.6
   scene.add(objects, deposits, reference)
+  const roverAgent=createRover({scene,reference,heightAt:groundY,reserveEnergy:kWh=>lifeSupport.reserveChargingEnergy(kWh),focus:(x,z)=>{if(fps.active)fps.setActive(false);currentView='rover';reference.visible=true;camera.position.set(x+9,groundY(x,z)+6.5,z+11);controls.target.set(x,groundY(x,z)+1,z);controls.update();}});
+  lifeSupport.consoles.registerRover(roverAgent);
+
   const crewModels = new Map()
   const loadedCharacters = new Set()
   const retiredCharacters = []
@@ -186,6 +190,8 @@ function makeScene() {
     if (roofAccess) return true
     if (navigation.collides(x,z)) return true
     if (occupied(x, z, .31)) return true
+    if(Math.hypot(x-COMMS_PAD.x,z-COMMS_PAD.z)<COMMS_PAD.radius)return true;
+    if(reference.visible&&reference.children.length&&Math.hypot(x-reference.position.x,z-reference.position.z)<1.85)return true;
     // Metre-scale hull radius 5.8 + suited shoulder clearance. Keep the camera
     // outside the belly/engine envelope while allowing the +Z ladder approach.
     if (Math.hypot(x - crewLander.position.x, z - crewLander.position.z) < 6.18) return true
@@ -255,6 +261,7 @@ function makeScene() {
   }
 
   function drawTarget(target) {
+    selected=undefined; // No construction cursor or placement ghost.
     const deposit = target?.deposit
     const crop = crops[target?.item?.type]
     const candidate = selected ? inspect(deposit ? null : target) : {}
@@ -297,8 +304,7 @@ function makeScene() {
         ? modules[target.item.type].name + (canAccess ? " · R ile çatı görüşü" : "")
         : show ? candidate.error ?? (target.position.supportId ? "E · Çatıya monte et" : "E · Zemine yerleştir") : ""
       // IHAN-SRC: greenhouse airlock prompt takes priority near its own doors.
-      const airlock = lifeSupport.prompt(camera) || (navigation.nearAirlock(camera.position.x,camera.position.z)
-        ? (navigation.inside ? 'E · Hava kilidinden çık' : 'E · Hava kilidinden gir') : label)
+      const airlock = lifeSupport.prompt(camera) || navigation.prompt(camera.position.x,camera.position.z,camera) || label
       if (aimLabel.textContent !== airlock) aimLabel.textContent = airlock
 
     }
@@ -351,7 +357,7 @@ function makeScene() {
     interact: () => {
       // IHAN-SRC: E -> chamber -> pressure cycle -> E -> second door.
       if (lifeSupport.interact(camera, fps)) return
-      const transition = navigation.interact(camera.position.x,camera.position.z)
+      const transition = navigation.interact(camera.position.x,camera.position.z,camera)
       if (transition) {
         fps.teleport(new T.Vector3(transition.x,transition.y+1.65,transition.z),0,transition.yaw)
         status.textContent=transition.message
@@ -440,9 +446,17 @@ function makeScene() {
   }
   function tick(delta, updateAim = true) {
     environment.update(delta)
+    ova.updateLab(delta)
+    comms.update(delta);
+    const roverX=reference.position.x,roverY=reference.position.y,roverZ=reference.position.z;
+    roverAgent.update(delta,environment.telemetry.warp,camera);
+    if(currentView==='rover'){camera.position.x+=reference.position.x-roverX;camera.position.y+=reference.position.y-roverY;camera.position.z+=reference.position.z-roverZ;controls.target.x+=reference.position.x-roverX;controls.target.y+=reference.position.y-roverY;controls.target.z+=reference.position.z-roverZ;}
     // IHAN-SRC: drive vendor calculations from the same Mars clock, including warp.
     lifeSupport.update(delta, environment.telemetry, camera, fps)
-    environment.setLifeSupport(lifeSupport.telemetry)
+    const habitatTransition=navigation.update(delta); if(habitatTransition)fps.teleport(new T.Vector3(habitatTransition.x,habitatTransition.y+1.65,habitatTransition.z),0,habitatTransition.yaw)
+    ova.solar.framePower(delta,lifeSupport.power.telemetry.dust);
+    environment.setLifeSupport({...lifeSupport.telemetry,lab:ova.soilAnalysis})
+    if(Math.floor(environment.telemetry.unixSeconds)!==ova.lastScreenSecond){ova.lastScreenSecond=Math.floor(environment.telemetry.unixSeconds);ova.updateLifeDisplays(lifeSupport.telemetry)}
     tracks.update(delta)
     crewAgents.update(delta, { state, playerId, fpsActive: fps.active, camera, speed: environment.telemetry.warp })
     if (fps.active) fps.update(delta, updateAim)
@@ -462,7 +476,7 @@ function makeScene() {
     world:'duz-ova', view:currentView, insideHabitat:navigation.inside, assets:{crew:Boolean(teamCharacter),rover:reference.children.length>0},
     fps: fps.active, player: fps.telemetry, environment: environment.telemetry,
     lifeSupport: lifeSupport.telemetry, // IHAN-SRC: deterministic observer contract
-    crewAgents: crewAgents.telemetry,
+    crewAgents: crewAgents.telemetry,rover:roverAgent.telemetry,comms:comms.telemetry,
     placement: { selected: selected ?? null, preview: preview.visible, marker: marker.visible },
     rendering: { ...frameStats, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, pixelRatio: renderer.getPixelRatio() },
   })
@@ -485,13 +499,13 @@ function makeScene() {
     byId("helmet").textContent = "Astronot " + (playerIndex + 1) + " · Sağlık %" + state.crew[playerIndex].health
     // IHAN-SRC: sol completion uses the new colony power/weather row.
     lifeSupport.sync(state)
-    environment.setLifeSupport(lifeSupport.telemetry)
+    environment.setLifeSupport({...lifeSupport.telemetry,lab:ova.soilAnalysis})
     environment.sync(state, status.textContent)
     objects.clear()
     for (const node of surfaceDeposits) depositMeshes.get(node.id).visible = workshop.collected[node.id] !== state.sol
     roofs.clear()
     groundObstacles.length = 0
-    for (const asset of hardware.filter(asset => asset !== crewLander && asset.visible)) groundObstacles.push({ x: asset.position.x, z: asset.position.z,
+    for (const asset of hardware.filter(asset => asset !== crewLander && asset !== reference && asset.visible)) groundObstacles.push({ x: asset.position.x, z: asset.position.z,
       halfX: asset.userData.radius, halfZ: asset.userData.radius })
     const moduleLights = []
     for (const item of state.placed) {
@@ -558,6 +572,7 @@ function makeScene() {
     state.crew.forEach((person, index) => {
       crewModels.get(index).visible = person.health > 0 && (!fps.active || person.id !== playerId)
     })
+    ova.solar.updatePowerDisplay(lifeSupport.power.telemetry.live?.groups??[]);
     environment.syncModules(moduleLights)
     scene.updateMatrixWorld(true)
     preview.clear()
@@ -603,14 +618,14 @@ function makeScene() {
 
   return {
     redraw: redrawScene,
-    resetEnvironment() { environment.reset(); lifeSupport.reset(state) }, // IHAN-SRC
+    resetEnvironment() { environment.reset(); lifeSupport.reset(state);roverAgent.reset() }, // IHAN-SRC
     loadNASA,
     dispose() {
       if (disposed) return
       disposed = true; lifecycle.abort(); taskObserver.disconnect()
       renderer.setAnimationLoop(null)
       if (gpuFence) gl.deleteSync(gpuFence)
-      observer.disconnect(); crewAgents.dispose(); lifeSupport.dispose(); fps.dispose(); ova.dispose(); // IHAN-SRC
+      observer.disconnect();roverAgent.dispose();crewAgents.dispose(); lifeSupport.dispose(); fps.dispose(); ova.dispose(); // IHAN-SRC
        environment.dispose(); tracks.dispose(); controls.dispose()
       window.render_game_to_text = previousTextHook; window.advanceTime = previousAdvanceHook
       const geometries = new Set(), materials = new Set(), textures = new Set()
@@ -685,6 +700,7 @@ function makeScene() {
         rover.add(fitCharacter(prepareOvaRover(gltf.scene), 2.18))
         reference.position.y = groundY(reference.position.x, reference.position.z)
         reference.add(rover)
+        roverAgent.bindModel(rover)
         reference.userData.radius = 1.55
         hardware.push(reference)
         redrawScene()
@@ -705,8 +721,8 @@ function makeScene() {
 // Integration (Emre): models are served from public/models/colony instead of base64 blocks
 // embedded in the single-file build; Draco decoder comes from public/draco.
 const modelFiles = {
-  "rover-data": "perseverance.glb",
-  "team-crew-data": "team-astronaut.glb",
+  "rover-data": "perseverance-wheels.glb",
+  "team-crew-data": "team-astronaut-walk.glb",
 }
 async function loadBytes(id, signal) {
   const response = await fetch(import.meta.env.BASE_URL + "models/colony/" + modelFiles[id], { signal })

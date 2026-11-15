@@ -15,8 +15,8 @@ it('allows every requested warp only in the allowed flight environment', () => {
   const state = { engineFiring: false, inAtmosphere: false }, step = vi.fn();
   const loop = createLoop({ step, getState: () => state });
   for (const warp of WARPS) expect(loop.setWarp(warp)).toBe(true);
-  state.engineFiring = true; expect(loop.setWarp(50)).toBe(false); expect(loop.setWarp(10)).toBe(true);
-  state.engineFiring = false; state.inAtmosphere = true; expect(loop.setWarp(1000)).toBe(false);
+  state.engineFiring = true; expect(loop.setWarp(100000)).toBe(false); expect(loop.setWarp(1000)).toBe(true); expect(loop.setWarp(10)).toBe(true); // vacuum burn ≤ ×1000
+  state.engineFiring = false; state.inAtmosphere = true; expect(loop.setWarp(1000)).toBe(false); expect(loop.setWarp(50)).toBe(true);
   expect(loop.setWarp(3)).toBe(false);
 });
 it('batches only safe fixed coast ticks, then reduces warp before firing engines', () => {
@@ -53,6 +53,6 @@ it('uses a rebindable keyboard table and removes listeners at teardown', () => {
   input.rebind('forward', 'KeyZ'); expect(input.isDown('forward')).toBe(false);
   send('keydown', 'KeyZ'); expect(input.isDown('forward')).toBe(true);
   send('keyup', 'KeyZ'); expect(input.isDown('forward')).toBe(false);
-  send('keydown', 'KeyQ'); expect(action).toHaveBeenCalledWith('watch', expect.any(Event));
-  input.dispose(); action.mockClear(); send('keydown', 'KeyQ'); expect(action).not.toHaveBeenCalled();
+  send('keydown', 'Tab'); expect(action).toHaveBeenCalledWith('watch', expect.any(Event));
+  input.dispose(); action.mockClear(); send('keydown', 'Tab'); expect(action).not.toHaveBeenCalled();
 });

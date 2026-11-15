@@ -1,7 +1,8 @@
+import { MARS_SOL_SECONDS } from './marsSun.js';
 /** IHAN-SRC — host wiring for İhan's a7d5ce6 air/water models. No DOM/Three.js. */
 import { AIR_DEFAULTS, WATER_DEFAULTS, createAirState, createWaterState, stepAir, stepWater } from './ihanLifeSupportModels.js';
 
-export const LIFE_SOL_SECONDS = 24.66 * 3600;
+export const LIFE_SOL_SECONDS = MARS_SOL_SECONDS;
 // GAME ASSUMPTION: one colony energy unit represents 12 kWh for this physical
 // projection. The original colony rules remain in educational energy units.
 export const COLONY_ENERGY_KWH = 12;
