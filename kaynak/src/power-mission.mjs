@@ -1,8 +1,11 @@
+import { weatherForSol } from "./mars-weather.mjs"
 import {powerForecast, LED_KW} from "./mars-power.mjs"
-function runPowerMission(tables,packs,greenhouse,dayDrill) {
+function runPowerMission(tables,packs,greenhouse,dayDrill,season) {
   let initial=8
-  return [1,.2,.2].map((sun,index)=>{
-    const result=powerForecast(sun,true,{tables,capacity:packs*45,initial,dayDrill,ledKW:greenhouse?LED_KW:0})
+  const sol=Number(document.getElementById("mars-weather")?.dataset.sol ?? 0)
+  const panelDust=Number(document.getElementById("panel-cleaning")?.dataset.dust ?? 0)
+  return [0,1,2].map(index=>weatherForSol(sol+index)).map((sun,index)=>{
+    const result=powerForecast(sun,true,{tables,capacity:packs*45,initial,dayDrill,season,panelDust,ledKW:greenhouse?LED_KW:0})
     initial=result.dawn
     return {sol:index+1,produced:result.energy,charged:result.charged,dusk:result.dusk,
       stored:result.dawn,gap:result.dayGap+result.lifeGap,greenhouseHours:result.lit}
@@ -19,7 +22,7 @@ if(panel) {
     const values=new FormData(form)
     const tables=Number(values.get("tables")), packs=Number(values.get("packs"))
     if(!Number.isInteger(tables)||tables<1||tables>42||!Number.isInteger(packs)||packs<1||packs>8)return
-    const rows=runPowerMission(tables,packs,values.has("lights"),values.has("drill"))
+    const rows=runPowerMission(tables,packs,values.has("lights"),values.has("drill"),Number(document.getElementById("mars-season")?.value ?? 0))
     const reliable=rows.every(row=>row.gap<.001)
     const reserve=rows.at(-1).stored>=10
     const summary=document.createElement("p")

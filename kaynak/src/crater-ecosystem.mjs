@@ -323,6 +323,14 @@ async function initMarsEnvironment() {
   scene.add(skyDome)
 
   const camera = new T.PerspectiveCamera(48, viewport.clientWidth / viewport.clientHeight, 0.1, 1400)
+  const helmetLamp=new T.SpotLight(0xfff1da,470,24,.37,.55,2)
+  helmetLamp.name="Astronot kask lambası"
+  helmetLamp.position.set(.12,.19,-.10)
+  helmetLamp.target.position.set(.08,-.23,-9)
+  helmetLamp.visible=false
+  camera.add(helmetLamp,helmetLamp.target)
+  scene.add(camera)
+
   const controls = new OrbitControls(camera, canvas)
   controls.enableDamping = true
   controls.dampingFactor = 0.05
@@ -1005,7 +1013,7 @@ async function initMarsEnvironment() {
   }
   mesh(mast,mastRod,steel,0,8.6,0).scale.y=1.4
   placeBaseItem(mast,-14,-1)
-  const solar = addSolarFarm(T, scene, getTerrainHeight, baseObstacles,{greenhouse:greenhouseSite,water:waterSite})
+  const solar = addSolarFarm(T, scene, getTerrainHeight, baseObstacles,{greenhouse:greenhouseSite,water:waterSite,moxie:{x:19,z:5},habitat:{x:0,z:0}})
 
   scene.add(colonyGroup)
   const greenhouse=createGreenhouse(scene)
@@ -1032,6 +1040,15 @@ async function initMarsEnvironment() {
     group.traverse(part=>{if(part.isMesh){part.castShadow=true;part.receiveShadow=true}})
     baseObstacles.push(new T.Box3().setFromObject(group).expandByScalar(.25))
   }
+  if(systems[0] && solar.moxieScreen) {
+    const housing=new T.Mesh(new T.BoxGeometry(.91,.85,.12),new T.MeshStandardMaterial({color:0x17222a,roughness:.7}))
+    housing.position.set(0,1.67,1.35)
+    const processScreen=new T.Mesh(new T.PlaneGeometry(.82,.77),new T.MeshBasicMaterial({map:solar.moxieScreen}))
+    processScreen.position.z=.064
+    housing.add(processScreen)
+    systems[0].group.add(housing)
+  }
+
   if (systems.length) connectFirstNight(...systems,sampleLanding,greenhouse)
   const portraitAssets = el("scene-rover")
   if (portraitAssets) {
@@ -1067,6 +1084,7 @@ async function initMarsEnvironment() {
   // CAMERA VIEWPOINTS (MARS SURFACE)
   // ==========================================================================
   const poses = {
+    wiper:{pos:[solar.x0-23,solar.level+5.8,solar.z0-14],target:[solar.x0-18,solar.level+2.15,solar.z0-20]},
     breaker:{pos:[solar.x0+39,solar.level+3,solar.z0+19],target:[solar.x0+34,solar.level+.8,solar.z0+14]},
     battery:{pos:[solar.x0+34,solar.level+3.8,solar.z0+8],target:[solar.x0+24,solar.level+1.5,solar.z0]},
     greenhouse:{pos:[greenhouseSite.x+13,8,greenhouseSite.z+18],target:[greenhouseSite.x,1.8,greenhouseSite.z]},
@@ -1315,10 +1333,15 @@ async function initMarsEnvironment() {
   })
 
   // Set initial view matching reference image
-  setView("panorama")
+  setView(el("charging-preview")?"battery":el("wiper-demo")?"wiper":"panorama")
 
   // Pointer lock & mouse movement
-  canvas.addEventListener("click", () => {
+  canvas.addEventListener("click", event => {
+    const rect=canvas.getBoundingClientRect()
+    const locked=document.pointerLockElement===canvas
+    const x=locked?0:(event.clientX-rect.left)/rect.width*2-1
+    const y=locked?0:1-(event.clientY-rect.top)/rect.height*2
+    if(solar.tapDisplay(camera,x,y,fpsActive?3.2:24)) return
     if (fpsActive && !isPointerLocked) {
       try { canvas.requestPointerLock?.()?.catch(() => {}) } catch { /* keyboard look remains available */ }
     }
@@ -1499,6 +1522,7 @@ async function initMarsEnvironment() {
   resizeObserver.observe(viewport)
 
   let lastTime = performance.now()
+  let shadowUpdateAt=0
   renderer.setAnimationLoop(time => {
     const realDelta = Math.max(0, (time - lastTime) / 1000)
     const delta = Math.min(0.05, realDelta)
@@ -1515,6 +1539,35 @@ async function initMarsEnvironment() {
       controls.update()
     }
 
+    solar.frame(time)
+    const lampOn=Boolean(fpsActive && !indoors && !airlockCycle &&
+      currentTheme==="mars" && solar.live && !solar.live.daylight)
+    if(helmetLamp.visible!==lampOn) {
+      helmetLamp.visible=lampOn
+      const indicator=el("helmet-lamp")
+      if(indicator) indicator.hidden=!lampOn
+    }
+    if(currentTheme==="mars" && scene.fog) {
+      const haze=1-solar.transmission
+      scene.fog.density=.004+haze*.021
+      const live=solar.live
+      if(live?.daylight && time>=shadowUpdateAt) {
+        sunLight.position.set(live.east*105,Math.max(.015,live.elevation)*105,-live.north*105)
+        renderer.shadowMap.needsUpdate=true
+        shadowUpdateAt=time+2200
+      }
+      const lightLevel=live?Math.max(0,live.elevation):1
+      sunLight.intensity=3.5*(.35+.65*solar.transmission)*lightLevel
+      skyDome.visible=!live || live.daylight
+      scene.background.set(live&&!live.daylight?0x110f19:0x0b0806)
+      scene.fog.color.set(live&&!live.daylight?0x191621:0xc99e7b)
+      earthshineLight.intensity=.13+1.57*lightLevel
+      if(live) {
+        greenhouse.setNight(live.greenhouse.duty>0)
+        systems[0]?.update({producer:(live.moxie?.duty ?? 0)>0})
+        systems[1]?.update({extractor:live.water.duty>0})
+      }
+    }
     greenhouse.frame(time/1000)
     for (const system of systems) system.frame(time/1000,delta)
     renderer.render(scene, camera)

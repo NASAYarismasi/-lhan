@@ -1,3 +1,4 @@
+import { MOXIE_KG_PER_HOUR } from "./live-grid.mjs"
 import { powerForecast, LED_KW, WATER_KWH_PER_L, ICE_FRACTION, CAPTURE } from "./mars-power.mjs"
 import { AIR_DEFAULTS, createAirState, stepAir } from "../../sistemler/hava.mjs"
 import { WATER_DEFAULTS, createWaterState, stepWater } from "../../sistemler/su.mjs"
@@ -13,14 +14,14 @@ export function readLanding(data) {
   return { crew:crew.length, water:supplies.water, oxygen:supplies.oxygen, energy:surfaceEnergy }
 }
 
-export function previewNight(landing, policy, sunlight=.2, lighting="off",branchConnected=true) {
-  const hours = 12.33
-  const airConfig = {...AIR_DEFAULTS,crew:landing.crew}
+export function previewNight(landing, policy, sunlight=.2, lighting="off",branchConnected=true,season=0,panelDust=0) {
+  const airConfig = {...AIR_DEFAULTS,crew:landing.crew,productionKgHour:MOXIE_KG_PER_HOUR}
   const waterConfig = {...WATER_DEFAULTS,crew:landing.crew,iceWaterFraction:ICE_FRACTION,captureEfficiency:CAPTURE,litersPerHour:WATER_DEFAULTS.extractionKW/WATER_KWH_PER_L}
   let air = {...createAirState(), oxygenKg:Math.min(airConfig.tankCapacityKg,landing.oxygen)}
   let water = {...createWaterState(), cleanL:Math.min(waterConfig.tankCapacityL,landing.water)}
   const lampKW=branchConnected?({full:LED_KW,dim:LED_KW*.4,off:0}[lighting]):0
-  const grid=powerForecast(sunlight,branchConnected,{initial:landing.energy,ledKW:lampKW,nightDrill:policy==="water"})
+  const grid=powerForecast(sunlight,branchConnected,{initial:landing.energy,ledKW:lampKW,nightDrill:policy==="water",season,panelDust})
+  const hours=grid.night
   const {energy:solar,dayGap:dayShortfall,dusk:atDusk,lifeGap:unservedBase}=grid
   const greenhouse={energy:0,water:0,litHours:0}
   const daytimeWater=Math.min(waterConfig.tankCapacityL-water.cleanL,grid.drilling*waterConfig.litersPerHour)
@@ -94,12 +95,14 @@ export function connectFirstNight(airSystem, waterSystem, sample, greenhouseMode
   form.addEventListener("submit",event=>{
     event.preventDefault()
     const options=new FormData(form)
-    const priority=options.get("priority"), sunlight=Number(options.get("sunlight"))
+    const priority=options.get("priority"), sunlight=Number(document.getElementById("mars-weather")?.dataset.sunlight ?? options.get("sunlight") ?? 1)
     const lighting=branchConnected ? options.get("lighting") ?? "off" : "off"
-    const result=previewNight(landing,priority,sunlight,lighting,branchConnected)
+    const season=Number(document.getElementById("mars-season")?.value ?? 0)
+    const dust=Number(document.getElementById("panel-cleaning")?.dataset.dust ?? 0)
+    const result=previewNight(landing,priority,sunlight,lighting,branchConnected,season,dust)
     greenhouseModel?.setNight(result.greenhouse.litHours>0)
     const alternate=lighting==="full"?"dim":"full"
-    const comparison=previewNight(landing,priority,sunlight,alternate,branchConnected)
+    const comparison=previewNight(landing,priority,sunlight,alternate,branchConnected,season,dust)
     const {air,water}=result
     airSystem.update({...air,producer:air.generatedKg>0})
     waterSystem.update({...water,extractor:water.extractedL>0})

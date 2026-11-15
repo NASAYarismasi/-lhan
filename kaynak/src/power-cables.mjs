@@ -14,6 +14,22 @@ export function addPowerCables(T, farm, height, sites, tables, inverters) {
     mesh.receiveShadow=true
     farm.add(mesh)
   }
+  // Buried runs are logical routes. Only the protected risers are rendered.
+  const buriedRuns=[]
+  const riser=(x,z)=>{
+    const collar=new T.Mesh(new T.CylinderGeometry(.12,.15,.16,12),metal)
+    collar.position.set(x,height(x,z)+.07,z)
+    collar.receiveShadow=true
+    farm.add(collar)
+  }
+  const buried=(start,end,route,radius,material)=>{
+    buriedRuns.push({start,end,route,depth:.55})
+    for(const points of [start,end]){
+      const [x,z]=points.at(-1)
+      cable([...points,[x,z,height(x,z)-.08]],radius,material)
+      riser(x,z)
+    }
+  }
   const cabinet=(x,z,w,h,d)=>{
     const box=new T.Mesh(new T.BoxGeometry(w,h,d),metal)
     box.position.set(x,height(x,z)+h/2,z)
@@ -38,22 +54,22 @@ export function addPowerCables(T, farm, height, sites, tables, inverters) {
       const target=inverters[feed]
       const entry=target.z+1.79
       const dx=x+(branch-.5)*.20
-      cable([[dx,z+1.55,y+1.25],[dx,z+1.55],[dx,lane],[corridor,lane],
-        [corridor,entry],[target.x-.64,entry],[target.x-.64,entry,target.y+.29]],.039,dc)
+      buried([[dx,z+1.55,y+1.25]],[[target.x-.64,entry,target.y+.29]],
+        [[dx,lane],[corridor,lane],[corridor,entry]],.039,dc)
     })
   })
   const busX=34
   const busZ=14
   const busY=cabinet(busX-1.45,busZ,2.8,1.5,.8)
   const trayY=height(busX,busZ)+.19
-  cabinet(busX-1.42,busZ-2.35,2.86,.09,3.83)
+
   for(let index=0;index<inverters.length;index++){
     const {x,y,z}=inverters[index]
     const exit=z+2.04+Math.floor(index/5)*.19
     const trunk=31.32+index*.27
-    cable([[x+.63,z+.9,y+.34],[x+.63,exit],[trunk,exit],
-      [trunk,busZ-4.25,trayY],[trunk,busZ-.78,trayY],
-      [trunk,busZ-.38,trayY]],.045,ac)
+    buried([[x+.63,z+.9,y+.34],[x+.63,z+1.10,y+.16]],
+      [[trunk,busZ-.38,trayY],[trunk,busZ-.57,trayY]],
+      [[x+.63,exit],[trunk,exit]],.045,ac)
   }
   const switchX=busX+1.55
   const switchZ=busZ+.17
@@ -64,14 +80,33 @@ export function addPowerCables(T, farm, height, sites, tables, inverters) {
   const switchPosition=lever.position.clone()
   cable([[busX-1.45,busZ+.40,busY],[switchX,switchZ-.27,switchY]],.065,ac)
   const loads=[
-    {site:sites.greenhouse,xOffset:-5.16,zOffset:2.7,waypoints:[[35,15.8],[65,15.8],[65,-18.3]]},
-    {site:sites.water,xOffset:5.12,zOffset:0,waypoints:[[36,16.17],[130,16.17],[130,-72]]}
+    {key:"greenhouse",site:sites.greenhouse,xOffset:-5.16,zOffset:2.7,waypoints:[[35,15.8],[65,15.8],[65,-18.3]]},
+    {key:"water",site:sites.water,xOffset:5.12,zOffset:0,waypoints:[[36,16.17],[130,16.17],[130,-72]]},
+    {key:"moxie",site:sites.moxie,xOffset:4.7,zOffset:1,waypoints:[[34,16],[84,16],[84,-40]]},
+    {key:"habitat",site:sites.habitat,xOffset:2.8,zOffset:4.2,waypoints:[[33,16],[49,16],[49,-41.8]]}
   ]
-  for(const {site,xOffset,zOffset,waypoints} of loads) {
+  const analyzers={}
+  for(const [index,{key,site,xOffset,zOffset,waypoints}] of loads.entries()) {
+    if(!site) continue
     const x=site.x+xOffset,z=site.z+zOffset
     const y=cabinet(x,z,.62,.83,.38)
     const [endX]=waypoints.at(-1)
-    cable([[switchX,switchZ+.27,switchY],...waypoints,[endX,z],[x,z],[x,z,y],[x-Math.sign(xOffset)*.30,z,y]],.086,ac)
+    const display=document.createElement("canvas")
+    display.width=512
+    display.height=480
+    const texture=new T.CanvasTexture(display)
+    texture.colorSpace=T.SRGBColorSpace
+    const screen=new T.Mesh(new T.PlaneGeometry(.53,.49),new T.MeshBasicMaterial({map:texture}))
+    screen.position.set(x,height(x,z)+.51,z+.195)
+    farm.add(screen)
+    analyzers[key]={ctx:display.getContext("2d"),texture}
+    const terminalX=x-Math.sign(xOffset)*.30
+    const portX=switchX+(index-.5)*.22
+    const entry=index<2?[[portX,switchZ+.23,switchY],[portX,switchZ+.48,switchY-.17]]:
+      [[busX-1.45+(index-2.5)*.4,busZ+.4,busY],[busX-1.45+(index-2.5)*.4,busZ+.7,busY-.18]]
+    buried(entry,
+      [[terminalX,z,y],[terminalX,z+.28,y-.12]],
+      [...waypoints,[endX,z]],.067,ac)
   }
-  return {counts,switchPosition,setClosed(closed){lever.rotation.x=closed?-.72:.72}}
+  return {counts,buriedRuns,analyzers,switchPosition,setClosed(closed){lever.rotation.x=closed?-.72:.72}}
 }
