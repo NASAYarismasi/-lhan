@@ -583,6 +583,9 @@ export function createOvaWorld(scene){
   const glazing = new T.MeshPhysicalMaterial({
     color:0x97bdc4,transparent:true,opacity:.34,roughness:.12,metalness:.15,side:T.DoubleSide,depthWrite:false
   })
+  const interiorLamps=[]
+  const ceilingDiffuser=new T.MeshBasicMaterial({color:0x817d6d});
+  let habitatLightsOn=false;
   const light = new T.MeshBasicMaterial({color:0xffe9bd})
   function block(group,w,h,d,material,x,y,z){
     return mesh(group,new T.BoxGeometry(w,h,d),material,x,y,z)
@@ -631,10 +634,10 @@ export function createOvaWorld(scene){
     function roofY(px,pz){const radius=Math.hypot(px,pz);let h=3.49;for(let i=0;i<rings.length-1;i++){if(radius<=rings[i][0]&&radius>=rings[i+1][0]){const t=(rings[i][0]-radius)/(rings[i][0]-rings[i+1][0]);h=rings[i][1]+t*(rings[i+1][1]-rings[i][1]);break;}}return h*shellHeight;}
     for(const xx of [-.67,.67]){const roof=roofY(xx,-.5),bottom=2.88;const cable=mesh(group,new T.CylinderGeometry(.009,.009,Math.max(.01,roof-bottom),8),steel,xx,(roof+bottom)/2,-.5);mesh(group,new T.CylinderGeometry(.045,.045,.025,12),steel,xx,roof-.015,-.5);block(group,.09,.04,.11,steel,xx,2.87,-.5);}
     block(group,1.78,.045,.28,rack,0,2.87,-.5)
-    block(group,1.7,.055,.22,light,0,2.83,-.5)
-    const lamp=new T.PointLight(0xffe6b8,10,6)
+    block(group,1.7,.055,.22,ceilingDiffuser,0,2.83,-.5)
+    const lamp=new T.PointLight(0xffe6b8,0,6)
     lamp.position.set(0,2.65,-.35)
-    group.add(lamp)
+    group.add(lamp);interiorLamps.push([lamp,22]);
     const furnishingsStart=group.children.length
     if(index===2){
       // Three compact sleeping berths, with a clear central aisle.
@@ -699,10 +702,10 @@ export function createOvaWorld(scene){
     }
     const lock = { x, inner:makeHatch(2.92), outer:makeHatch(5.12) }
     locks.push(lock)
-    for(const z of [3.24,4.86]) block(chamber,.45,.05,.14,light,0,2.03,z)
-    const chamberLight = new T.PointLight(0xffdeb0,3,3.6)
+    for(const z of [3.24,4.86]) block(chamber,.45,.05,.14,ceilingDiffuser,0,2.03,z)
+    const chamberLight = new T.PointLight(0xffdeb0,0,3.6)
     chamberLight.position.set(0,1.95,4)
-    chamber.add(chamberLight)
+    chamber.add(chamberLight);interiorLamps.push([chamberLight,8]);
     const footY=getTerrainHeight(x,6.65)+.02
     lock.rampFootY=footY
     const ramp=block(colonyGroup,1.55,.12,Math.hypot(1.53,floorY-footY),deckMat,x,(floorY+footY)/2,5.885)
@@ -745,6 +748,10 @@ export function createOvaWorld(scene){
     block(colonyGroup,.3,.04,.3,steel,9+xx,floorY-.17,zz);
   }
   block(sanitary,2.7,.14,4.0,interior,0,2.5,-5);
+  block(sanitary,.82,.045,.18,ceilingDiffuser,0,2.405,-5);
+  const sanitaryLamp=new T.PointLight(0xffe6b8,0,3.8);
+  sanitaryLamp.position.set(0,2.31,-5);
+  sanitary.add(sanitaryLamp);interiorLamps.push([sanitaryLamp,9]);
   for(const xx of [-1.3,1.3])block(sanitary,.14,2.5,4,interior,xx,1.25,-5);
   block(sanitary,2.7,2.5,.14,interior,0,1.25,-6.93);
   for(const xx of [-1.05,1.05])block(sanitary,.5,2.5,.14,interior,xx,1.25,-3.07);
@@ -823,6 +830,13 @@ export function createOvaWorld(scene){
     privacyPrompt(x,z){return Math.abs(x-9)<1.05&&Math.abs(z+3.07)<1.5?'E · Tuvalet kapısını '+(privacyOpen?'kapat':'aç'):'';},
     togglePrivacy(x,z){if(!this.privacyPrompt(x,z))return false;privacyOpen=!privacyOpen;privacyDoor.rotation.y=privacyOpen?-Math.PI/2:0;return true;},
     privacyBlocked(x,z){if(z> -3.3&&z< -2.18&&Math.abs(x-9)>.62&&Math.abs(x-9)<1.16)return true;return !privacyOpen&&Math.abs(x-9)<1.0&&Math.abs(z+3.07)<.28;},
+    setHabitatLights(on){
+      if(on===habitatLightsOn)return;
+      habitatLightsOn=on;
+      for(const [lamp,intensity] of interiorLamps)lamp.intensity=on?intensity:0;
+      ceilingDiffuser.color.setHex(on?0xffe9bd:0x817d6d);
+    },
+    get habitatLightsOn(){return habitatLightsOn;},
     updateLifeDisplays(t){lifeDisplays[0]?.([`O2 ${t.oxygenKg.toFixed(2)} kg`,`CO2 temizlenen ${t.air.removedCO2Kg.toFixed(2)} kg`]);lifeDisplays[1]?.([`SU ${t.waterL.toFixed(1)} L`,`GUC ${t.powerKW.toFixed(2)} kW`]);},
     isInsideFloor:insideZone,isHabitatBlocked:outsideObstacle,
     blocksFootprint(x,z,hx,hz){return centers.some(cx=>Math.abs(x-cx)<radius+hx && Math.abs(z)<radius+hz)

@@ -43,7 +43,7 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
   for (let row = 0; row < 6; row++) for (let col = 0; col < 7; col++) {
     const x = (col - 3) * 6, z = (row - 2.5) * 8
     const y = terrainHeight(x0 + x, z0 + z) - level
-    tables.push({x,y,z});
+    tables.push({x,y,z,row});
     const table = new T.Group()
     table.position.set(x,y+2.25,z)
     table.rotation.x = .55
@@ -66,7 +66,7 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
   const brushes=new T.InstancedMesh(new T.BoxGeometry(4.95,.08,.13),new T.MeshStandardMaterial({color:0x4b5150,roughness:.8}),42);
   brushes.name="SolarCleaningBrushes";
   brushes.instanceMatrix.setUsage(T.DynamicDrawUsage);farm.add(brushes);
-  const brushTransform=new T.Object3D();let lastDust=null,sweepAge=100;
+  const brushTransform=new T.Object3D();
   const cabinet=new T.BoxGeometry(2.8,2.3,1.6)
   const enclosure=new T.MeshStandardMaterial({color:0xa4aa9e,metalness:.42,roughness:.66})
   const terminal=new T.MeshStandardMaterial({color:0x252d32,roughness:.76})
@@ -79,6 +79,8 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
   displayTexture.colorSpace=T.SRGBColorSpace
   const displayMaterial=new T.MeshBasicMaterial({map:displayTexture})
   const hmi=[];
+  const screens=[];
+  let groupReadings=[], groupDaylight;
   const inverters=[]
   for(let i=0;i<10;i++) {
     const x=23+4*Math.floor(i/5),z=(i%5-2)*4.5
@@ -96,13 +98,15 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
       for(let slot=0;slot<6;slot++) part(rack,new T.BoxGeometry(.85,.035,.025),terminal,side,.50+slot*.083,.903)
     }
     part(rack,new T.BoxGeometry(.18,.14,.04),hazard,-.88,1.76,.91)
-    if(i<5){
+    if(i%2===0){
       const canvas=document.createElement('canvas');canvas.width=768;canvas.height=384;
       const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;
-      hmi.push({canvas,texture,material:new T.MeshBasicMaterial({map:texture})});
+      hmi.push({canvas,texture,detail:false,material:new T.MeshBasicMaterial({map:texture})});
     }
-    const monitor=part(rack,new T.PlaneGeometry(.91,.455),hmi[i%5].material,.67,1.91,.908);
+    const monitor=part(rack,new T.PlaneGeometry(.91,.455),hmi[Math.floor(i/2)].material,.67,1.91,.908);
     monitor.castShadow=false
+    monitor.userData.groupIndex=Math.floor(i/2);
+    screens.push(monitor);
     part(rack,new T.BoxGeometry(1.05,1.25,.56),terminal,-.63,.68,1.51)
     part(rack,new T.BoxGeometry(.94,1.13,.06),enclosure,-.63,.68,1.82)
     part(rack,new T.BoxGeometry(.64,.075,.035),hazard,-.63,1.1,1.86)
@@ -120,9 +124,16 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
     obstacles.push(new T.Box3().setFromObject(rack).expandByScalar(.12))
   }
   screen.fillStyle='#101b22';screen.fillRect(0,0,512,256);screen.fillStyle='#d6f0ed';screen.font='28px monospace';screen.fillText('KOLONI BATARYASI',24,48);screen.fillText('YER ALTI BESLEME',24,100);displayTexture.needsUpdate=true;
-  const wiring=addPowerCables(T,farm,(x,z)=>terrainHeight(x0+x,z0+z)-level,{greenhouse:{x:26-x0,z:-11-z0},water:{x:64-x0,z:-26-z0}},tables,inverters);
+  const wiring=addPowerCables(T,farm,(x,z)=>terrainHeight(x0+x,z0+z)-level,{greenhouse:{x:26-x0,z:-11-z0},water:{x:64-x0,z:-26-z0},moxie:{x:19-x0,z:6-z0},habitat:{x:-x0,z:-z0}},tables,inverters);
   wiring.setClosed(true);
-  batchStaticLeaves(farm);
+  farm.updateMatrixWorld(true);
+  const hitTargets=screens.map(screen=>{
+    const target=new T.Mesh(screen.geometry,screen.material);
+    target.matrixWorld.copy(screen.matrixWorld);
+    target.userData.groupIndex=screen.userData.groupIndex;
+    return target;
+  });
+  batchStaticLeaves(farm,new Set([wiring.lever]));
   // Host adaptation: the weather buttons only exist on İhan's stand-alone page (and not in node tests).
   const weatherButtons = typeof document?.querySelectorAll === "function" ? document.querySelectorAll("[data-solar-weather]") : []
   const update = (factor) => {
@@ -136,20 +147,33 @@ export function addSolarFarm(T, scene, terrainHeight, obstacles) {
     for (const button of weatherButtons) button.addEventListener("click", () => update(Number(button.dataset.solarWeather)))
     update(1)
   }
-  return {farm,level,x0,z0,framePower(dt,dust){
-    if(lastDust!==null&&dust<lastDust-.02)sweepAge=0;
-    lastDust=dust;sweepAge+=dt;
-    const stroke=sweepAge<6?Math.sin(Math.min(1,sweepAge/6)*Math.PI):0;
+  const ray=new T.Raycaster(),pointer=new T.Vector2()
+  return {farm,level,x0,z0,setClosed:wiring.setClosed,
+    interact(camera,event,canvas){
+      const rect=canvas.getBoundingClientRect()
+      pointer.set((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2)
+      ray.setFromCamera(pointer,camera)
+      ray.far=18
+      const hit=ray.intersectObjects(hitTargets,false)[0]
+      if(!hit)return false
+      const index=hit.object.userData.groupIndex
+      hmi[index].detail=!hmi[index].detail
+      this.updatePowerDisplay(groupReadings,groupDaylight)
+      return true
+    },
+    framePower(strokes){
     tables.forEach((table,index)=>{
       brushTransform.position.set(table.x,table.y+2.25,table.z);
       brushTransform.rotation.set(.55,0,0);
-      brushTransform.translateY(.12);brushTransform.translateZ(-1.95+stroke*3.9);
+      brushTransform.translateY(.12);brushTransform.translateZ(-1.95+(strokes[table.row]??0)*3.9);
       brushTransform.updateMatrix();brushes.setMatrixAt(index,brushTransform.matrix);
     });
     brushes.instanceMatrix.needsUpdate=true;
-  },updatePowerDisplay(groups){
+  },updatePowerDisplay(groups,daylight){
+    groupReadings=groups;
+    groupDaylight=daylight;
     hmi.forEach((screen,i)=>{const index=i%5;const g=groups[index];if(!g)return;
-      drawGroupHmi(screen.canvas.getContext('2d'),index,{...g,energy:g.stored},false);screen.texture.needsUpdate=true;});
+      drawGroupHmi(screen.canvas.getContext('2d'),index,{...g,energy:g.stored,daylight},screen.detail);screen.texture.needsUpdate=true;});
   },updateBatteryDisplay(battery){screen.fillStyle='#101b22';screen.fillRect(0,0,512,256);screen.fillStyle='#d6f0ed';screen.font='30px monospace';screen.fillText('KOLONI BATARYASI',24,48);screen.font='42px monospace';screen.fillText(battery.toFixed(1)+' oyun birimi',24,120);screen.font='24px monospace';screen.fillText('DC / AC - YER ALTI HAT',24,190);displayTexture.needsUpdate=true;}}
 }
 

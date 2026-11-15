@@ -1,3 +1,4 @@
+import {MOXIE_TANK_KG,moxieTankFull} from "./ihan/power/live-grid.mjs";
 const format=value=>Number.isFinite(value)?value.toLocaleString('tr-TR',{maximumFractionDigits:2}):'—';
 export function mountPowerTablet(onOpen){
   const panel=document.createElement('section');panel.className='colony-drawer';panel.hidden=true;
@@ -21,22 +22,31 @@ export function mountPowerTablet(onOpen){
     const root=panel.querySelector('[data-readings]');root.replaceChildren();
     const paragraph=text=>{const p=document.createElement('p');p.textContent=text;root.append(p);};
     paragraph('Depo '+format(s.battery)+' / 180 kWh · PV '+format(t?.production)+' kW · Gece rezervi '+format(t?.reserve)+' kWh');
+    paragraph((latest.opacity>=.35?'Toz fırtınası':latest.opacity>.02?'Tozlu hava':'Açık hava')+' · Panellere ulaşan ışık %'+format(latest.transmission*100)+(latest.cleaning?' · Silecekler çalışıyor':''));
+    paragraph('kW anlık gücü, kWh biriken veya harcanan enerjiyi gösterir.');
     paragraph('Panel tozu %'+format(latest.dust*100)+' · Kabin '+format(s.temperature)+' °C · Habitat açığı '+format(s.dailyShortfall)+' kWh');
     const table=document.createElement('table');
     for(const [index,g]of (t?.groups??[]).entries()){
       const row=document.createElement('tr');
-      for(const value of ['G'+(index+1),format(g.stored)+' kWh','PV '+format(g.pv)+' kW','Şarj '+format(g.charge)+' kW','Depodan '+format(g.draw)+' kW','AC '+format(g.output)+' kW',format(g.kvar)+' kvar',format(Math.hypot(g.output??0,g.kvar??0))+' kVA']){
+      for(const value of ['G'+(index+1),format(g.stored)+' kWh','Güneş '+format(g.pv)+' kW','Bataryaya '+format(g.charge)+' kW','Bataryadan '+format(g.draw)+' kW','AC '+format(g.output)+' kW',format(g.kvar)+' kvar',format(Math.hypot(g.output??0,g.kvar??0))+' kVA']){
         const cell=document.createElement('td');cell.textContent=value;row.append(cell);
       }table.append(row);
     }root.append(table);
     for(const key of ['habitat','water','moxie','greenhouse']){
-      const m=t?.[key];const label={habitat:'Yaşam alanı',water:'Buz sondajı',moxie:'MOXIE',greenhouse:'Sera'}[key];if(m)paragraph(label+' · Tesise '+format(m.consumption)+' kW · Hattan '+format(m.supply)+' kW · Kayıp '+format(m.loss)+' kW · Akım '+format(m.current)+' A · Kaynak '+(m.sources??[]).join(', '));
+      const m=t?.[key];
+      if(!m)continue;
+      const label={habitat:'Yaşam alanı',water:'Buz sondajı',moxie:'MOXIE',greenhouse:'Sera'}[key];
+      const sources=m.sources?.length?' · Besleyen '+m.sources.map(id=>'G'+id).join(', '):'';
+      if(key==='water'&&m.tankHold)paragraph('Su tankı doldu. Sondaj 95 L’ye kadar beklemede · '+(m.lineEnergized?'Besleme hattı açık':'Besleme hattı enerjisiz')+' · G1 bataryasına '+format(t.groups[0].charge)+' kW giriyor.');
+      paragraph(label+(m.duty>0?' çalışıyor':' beklemede')+' · Cihaz '+format(m.consumption)+' kW kullanıyor · Kabloda '+format(m.loss*1000)+' W kayıp'+sources);
+      paragraph('Hat çıkışı '+format(m.supply)+' kW · Akım '+format(m.current)+' A · Reaktif güç '+format(m.kvar)+' kvar · Toplam cihaz yükü '+format(m.kva)+' kVA · Güç faktörü '+format(m.pf));
     }
     paragraph('AC bara desteği '+format(t?.transferKW)+' kW');
     for(const transfer of t?.transfers??[])paragraph('G'+transfer.from+' → G'+transfer.to+' · '+format(transfer.kw)+' kW');
     for(const [i,g]of (t?.groups??[]).entries())paragraph('G'+(i+1)+' panel aralığı '+format(g.weakest*1000)+'–'+format(g.strongest*1000)+' W · %80 altında '+(g.lowPanels??0)+' panel');
-    paragraph('MOXIE · CO₂ giriş '+format(t?.gas?.intakeKgHour*1000)+' g/sa · toplam '+format(s.co2Intake)+' kg · O₂ '+format(t?.gas?.oxygenKgHour*1000)+' g/sa · tank '+format(s.oxygen)+' / 15 kg');
-    paragraph('MOXIE üretim tankı bu modelde habitatın tüketiminden ayrı izlenir.');
+    paragraph('MOXIE · O₂ üretimi '+format((t?.gas?.oxygenKgHour??0)*1000)+' g/sa · Toplam tank '+format(s.oxygen)+' / '+MOXIE_TANK_KG+' kg'+(moxieTankFull(s.oxygen)?' · Tanklar dolu, beklemede':''))
+    paragraph('MOXIE → Habitat · Aktarım '+format(s.oxygenTransferKgHour*1000)+' g/sa · Toplam aktarılan '+format(s.oxygenToHabitat*1000)+' g');
+    paragraph('Sera toplamı · Net O₂ '+format((t?.plantGas?.netKgHour??0)*1000)+' g/sa · Birikimli net '+format(s.greenhouseNetKg*1000)+' g')
 
     for(const message of latest.log)paragraph(message);
   });

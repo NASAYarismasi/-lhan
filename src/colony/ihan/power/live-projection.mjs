@@ -1,18 +1,31 @@
+import {advanceFacilityWater} from "./facility-water.mjs"
 import { SOL_HOURS, solarDay } from "./mars-power.mjs"
 import { stepMicrogrid } from "./live-grid.mjs"
 import { createAutomaticRecovery } from "./black-start.mjs"
 
+import {advanceSolarWeather,cleanSolarRows,solarWeatherReadings} from './solar-weather.mjs'
+import {supplyHabitatOxygen} from './habitat-oxygen.mjs'
+
 export function projectPower(snapshot, drill) {
   const state=structuredClone(snapshot.state)
   const recovery=createAutomaticRecovery(structuredClone(snapshot.recovery))
+  let water=snapshot.facility?structuredClone(snapshot.facility.water):null
+  let air=snapshot.facility?.air?structuredClone(snapshot.facility.air):null
+  const weather=snapshot.solarWeather?structuredClone(snapshot.solarWeather):null
+  const applyFacilities=(live,dt)=>{
+    if(air)air=supplyHabitatOxygen(air,dt,live,state,snapshot.facility.crew)
+    if(!water)return
+    water=advanceFacilityWater(water,dt,live,snapshot.facility.crew)
+    state.water=water.cleanL
+    state.iceKg=water.iceKg
+  }
   const rows=[]
   const day=solarDay(snapshot.season)
   for(let index=0;index<3;index++) {
     let hour=index===0?snapshot.hour:0
-    const {transmission,rowDust}=snapshot.weather[index]
     const beforeGap=state.dailyShortfall
-    const beforeWater=state.water
-    const beforeOxygen=state.oxygen
+    const beforeWater=water?.extractedL??state.water
+    const beforeOxygen=state.oxygenProduced??0
     let solar=0, led=0, drillHours=0
     while(hour<SOL_HOURS-1e-9) {
       const untilTransition=hour<day.daylight?day.daylight:SOL_HOURS
@@ -20,21 +33,28 @@ export function projectPower(snapshot, drill) {
       const midpoint=hour+dt/2
       let live
       // Resolve the short protection sequence in one-second steps.
-      if(midpoint>=day.daylight && recovery.needsFastStep) {
+      if(snapshot.blackStart!==false && midpoint>=day.daylight && recovery.needsFastStep) {
         const duration=Math.min(dt,1/3600)
         live=recovery.step(state,false,duration*3600,()=>{})
+        if(weather)advanceSolarWeather(weather,duration*3600)
+        applyFacilities(live,duration)
+        if(weather)cleanSolarRows(weather,duration*3600,false,state,live)
         hour+=duration
         led+=live.greenhouse.duty*duration
         continue
       }
-      live=recovery.step(state,midpoint<day.daylight,dt*3600,()=>{}) ??
-        stepMicrogrid(state,midpoint,dt,{...snapshot,transmission,rowDust,drill})
+      if(weather)advanceSolarWeather(weather,dt*3600)
+      const conditions=weather?solarWeatherReadings(weather):snapshot.weather[index]
+      live=(snapshot.blackStart!==false?recovery.step(state,midpoint<day.daylight,dt*3600,()=>{}):null) ??
+        stepMicrogrid(state,midpoint,dt,{...snapshot,...conditions,panelDust:conditions.dust??snapshot.panelDust,drill})
+      applyFacilities(live,dt)
+      if(weather)cleanSolarRows(weather,dt*3600,midpoint<day.daylight,state,live)
       solar+=live.production*dt
       led+=live.greenhouse.duty*dt
       drillHours+=live.water.duty*dt
       hour+=dt
     }
-    rows.push({solar,led,drillHours,stored:state.battery,gap:state.dailyShortfall-beforeGap,water:state.water-beforeWater,oxygen:state.oxygen-beforeOxygen})
+    rows.push({solar,led,drillHours,stored:state.battery,gap:state.dailyShortfall-beforeGap,water:(water?.extractedL??state.water)-beforeWater,oxygen:(state.oxygenProduced??0)-beforeOxygen})
   }
   return rows
 }

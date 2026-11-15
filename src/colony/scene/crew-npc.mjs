@@ -88,21 +88,54 @@ function makeLabel() {
   }, dispose() { texture.dispose(); sprite.material.dispose() } }
 }
 
+function makeHeadlamp(actor) {
+  const mount = new T.Group()
+  mount.name = 'Crew helmet lamp'
+  mount.position.set(0, 1.77, .19)
+  const lamp = new T.SpotLight(0xffefd5, 0, 20, Math.PI / 7, .55, 2)
+  lamp.target.position.set(0, -1.1, 4)
+  const housing = new T.Mesh(new T.BoxGeometry(.14, .07, .09),
+    new T.MeshStandardMaterial({color: 0x3e474b}))
+  housing.raycast = () => {}
+  const lens = new T.Mesh(new T.BoxGeometry(.105, .038, .012),
+    new T.MeshBasicMaterial({color: 0x657078}))
+  lens.position.z = .049
+  lens.raycast = () => {}
+  mount.add(lamp, lamp.target, housing, lens)
+  actor.add(mount)
+  return {
+    mount,
+    get on() { return lamp.intensity > 0 },
+    update(equipped, night) {
+      if (mount.parent !== actor) actor.add(mount)
+      housing.visible = lens.visible = equipped
+      lamp.intensity = equipped && night ? 34 : 0
+      lens.material.color.setHex(lamp.intensity > 0 ? 0xfff0d1 : 0x657078)
+    },
+    dispose() {
+      mount.removeFromParent()
+      lamp.dispose()
+      for (const part of [housing, lens]) { part.geometry.dispose(); part.material.dispose() }
+    },
+  }
+}
+
 export function createCrewAgents({ crewModels, groundY }) {
   const agents = new Map()
   for (const [index, actor] of crewModels) {
     const label = makeLabel(); actor.add(label.sprite)
-    agents.set(index, { actor, label, path: [], site: null, mode: 'idle', timer: 2 + index * 3, visit: 0, phase: index })
+    agents.set(index, { actor, label, headlamp: makeHeadlamp(actor), path: [], site: null, mode: 'idle', timer: 2 + index * 3, visit: 0, phase: index })
   }
   const target = new T.Vector3()
   return {
     /** dt in real seconds; `speed` lets the colony time warp hurry the crew a little (capped). */
-    update(dt, { state, playerId, fpsActive, camera, speed = 1 }) {
+    update(dt, { state, playerId, fpsActive, camera, night = false, speed = 1 }) {
       const step = dt * Math.min(Math.max(speed, 1), 8)
       state.crew.forEach((person, index) => {
         const agent = agents.get(index)
         if (!agent) return
-        const { actor, label } = agent
+        const { actor, label, headlamp } = agent
+        headlamp.update(person.health > 0 && person.id !== playerId, night)
         // İhan's character loader clears the actor's children when the NASA suit GLB arrives.
         if (label.sprite.parent !== actor) {actor.add(label.sprite);agent.parts=null}if(!agent.parts||!agent.parts.armL.length)agent.parts=limbs(actor)
         actor.rotation.order = 'YXZ'
@@ -148,8 +181,8 @@ export function createCrewAgents({ crewModels, groundY }) {
       })
     },
     get telemetry() {
-      return [...agents].map(([index, a]) => ({ index, mode: a.mode, site: a.site, x: +a.actor.position.x.toFixed(2), z: +a.actor.position.z.toFixed(2) }))
+      return [...agents].map(([index, a]) => ({ index, headlamp: a.headlamp.on, mode: a.mode, site: a.site, x: +a.actor.position.x.toFixed(2), z: +a.actor.position.z.toFixed(2) }))
     },
-    dispose() { for (const a of agents.values()) { a.label.sprite.removeFromParent(); a.label.dispose() } },
+    dispose() { for (const a of agents.values()) { a.label.sprite.removeFromParent(); a.label.dispose(); a.headlamp.dispose() } },
   }
 }

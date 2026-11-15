@@ -1,4 +1,5 @@
-import {stepAir,stepWater,AIR_DEFAULTS,WATER_DEFAULTS} from '../../sim/ihanLifeSupportModels.js';
+import {advanceFacilityWater} from "./power/facility-water.mjs";
+import {supplyHabitatOxygen} from './power/habitat-oxygen.mjs';
 import {createPowerController} from './power/controller.mjs';
 import { createSystemConsoles } from '../scene/system-consoles.mjs';
 /** IHAN-SRC — İhan's real a7d5ce6 installations and sera-demo airlock, hosted by the shared scene. */
@@ -6,16 +7,34 @@ import * as T from 'three';
 import { createAirSystem } from './hava.mjs';
 import { createWaterSystem } from './su.mjs';
 import { createGreenhouse } from './sera.mjs';
-import { createLifeSupport, stepLifeSupport, syncLifeSupport, lifeSupportTelemetry } from '../../sim/colonyLifeSupport.js';
+import { createLifeSupport, syncLifeSupport, lifeSupportTelemetry } from '../../sim/colonyLifeSupport.js';
 import { findAnimatedObjects, batchStaticLeaves } from '../scene/static-model.mjs';
 
-export function createLifeSupportFacilities(scene, heightAt, initialState) {
+function createOxygenLine(scene,heightAt,plantHeight,habitatFloor){
+  const material=new T.MeshStandardMaterial({color:0x548c9d,metalness:.45,roughness:.46});
+  const ground=(x,z)=>heightAt(x,z)-.45;
+  const points=[
+    [17.45,plantHeight+3.95,4.1],[16.95,plantHeight+3.95,4.1],
+    [16.95,ground(16.95,4.1),4.1],[14,ground(14,2),2],
+    [13.65,ground(13.65,0),0],[13.65,habitatFloor+.48,0],[12.52,habitatFloor+.48,0],
+  ].map(p=>new T.Vector3(...p));
+  const path=new T.CurvePath();
+  for(let index=1;index<points.length;index++)path.add(new T.LineCurve3(points[index-1],points[index]));
+  const geometry=new T.TubeGeometry(path,80,.065,8,false);
+  const mesh=new T.Mesh(geometry,material);
+  mesh.name='MOXIE to Habitat oxygen service line';
+  scene.add(mesh);
+  return {dispose(){mesh.removeFromParent();geometry.dispose();material.dispose();}};
+}
+
+export function createLifeSupportFacilities(scene, heightAt, initialState, habitatFloor) {
   const power=createPowerController();
   const origin = { x: 26, z: -11, y: heightAt(26, -11) };
   const greenhouse = createGreenhouse(scene);
   greenhouse.group.position.set(origin.x, origin.y, origin.z);
   const air = createAirSystem(scene, { x: 19, z: 6, heightAt });
   const water = createWaterSystem(scene, { x: 64, z: -26, heightAt });
+  const oxygenLine=createOxygenLine(scene,heightAt,air.group.position.y,habitatFloor);
   const machinery = [air, water].map(model => new T.Box3().setFromObject(model.group).expandByScalar(.32));
   // Host perf: ~920 static parts (pipes, flanges, frames, panels) become per-material batches.
   // Whatever İhan's own API moves (doors, fans, drill) is detected by running it once and stays live.
@@ -26,7 +45,7 @@ export function createLifeSupportFacilities(scene, heightAt, initialState) {
   air.update({ producer: false }); water.update({ extractor: false });
   const batched = [batchStaticLeaves(greenhouse.group, keepGreenhouse), batchStaticLeaves(air.group, keepAir), batchStaticLeaves(water.group, keepWater)];
   let support = createLifeSupport(initialState), colony = initialState;
-  let inside = false, cycle = null, time = 0, lastClock = null, lastDraw = -1;
+  let inside = false, cycle = null, time = 0, lastDraw = -1;
   const greenhouseControls={led:'auto',irrigation:false};
   const lightsOn=()=>greenhouseControls.led==='on'||greenhouseControls.led==='auto'&&api.night;
   const applyGreenhouse=()=>{greenhouse.setNight(lightsOn()&&Boolean(power.telemetry.live?.greenhouse?.duty));greenhouse.setIrrigation(greenhouseControls.irrigation);};
@@ -42,7 +61,7 @@ export function createLifeSupportFacilities(scene, heightAt, initialState) {
   }
   function consoleTelemetry(){const t=electricalTelemetry();return {...t,electrical:power.telemetry,oxygenHours:t.crew?t.oxygenKg/(t.crew*.84/24):0,waterDays:t.crew?t.waterL/(t.crew*3.52):0,
     controls:{air:{fans:Boolean(t.air.fans)},water:{extract:Boolean(t.water.extractor),recycle:Boolean(t.water.recycler)},greenhouse:{...greenhouseControls}},
-    greenhouse:{ledOn:lightsOn(),pumpOn:greenhouseControls.irrigation},airlock:cycle?cycle.awaiting?'awaiting-door':'cycling':'idle'};}
+    greenhouse:{ledOn:lightsOn()&&Boolean(power.telemetry.live?.greenhouse?.duty),pumpOn:greenhouseControls.irrigation},airlock:cycle?cycle.awaiting?'awaiting-door':'cycling':'idle'};}
   const consoles=createSystemConsoles({scene,heightAt,placements:{air:{x:23.4,z:9.4},water:{x:60.4,z:-21.6},greenhouse:{x:origin.x+3.4,z:origin.z+9.8},habitat:{x:2.5,z:7.4},solar:{x:-40.5,z:31}},
     emitters:{airVents:vents.length?vents:[new T.Vector3(19,2.8,6)],drill:new T.Vector3(drill.x,heightAt(drill.x,drill.z),drill.z),beds:Array.from({length:6},(_,i)=>new T.Vector3(origin.x+1.85+(i%2)*1.65,origin.y+1.3,origin.z-3.8+Math.floor(i/2)*3.35))},getTelemetry:consoleTelemetry,setControl:(system,key,value)=>{if(system!=='greenhouse')return;if(key==='led'&&['auto','on','off'].includes(value))greenhouseControls.led=value;if(key==='irrigation'&&typeof value==='boolean')greenhouseControls.irrigation=value;applyGreenhouse();}});
   const direction = new T.Vector3();
@@ -66,10 +85,11 @@ export function createLifeSupportFacilities(scene, heightAt, initialState) {
   }
   const api={
     consoles,power,
+    forecast(){return power.forecast({water:support.water,air:support.air,crew:support.crew,lamp:lightsOn()});},
     reserveChargingEnergy(requested){return power.consumeEnergy(requested);},
     get inside() { return inside || Boolean(cycle); },
     get floorY() { return origin.y + .25; },
-    get telemetry() { return { ...electricalTelemetry(), greenhouse: { inside, airlock: cycle ? cycle.awaiting ? 'awaiting-door' : 'cycling' : 'idle', night: this.night, ledOn:lightsOn(),pumpOn:greenhouseControls.irrigation } }; },
+    get telemetry() { return { ...electricalTelemetry(), greenhouse: { inside, airlock: cycle ? cycle.awaiting ? 'awaiting-door' : 'cycling' : 'idle', night: this.night, ledOn:lightsOn()&&Boolean(power.telemetry.live?.greenhouse?.duty),pumpOn:greenhouseControls.irrigation } }; },
     night: false,
     prompt:camera=>prompt(camera)||consoles.prompt(camera),
     interact(camera, fps) {
@@ -105,24 +125,15 @@ export function createLifeSupportFacilities(scene, heightAt, initialState) {
     sync(next) { support = syncLifeSupport(support, colony, next); colony = next; air.update(support.air); water.update(support.water); draw(); },
     update(dt, environment, camera, fps) {
       time += dt;
-      power.update(environment,lightsOn());
+      power.syncWater(support.water);
+      power.update(environment,lightsOn(),(grid,hours,state)=>{
+        support={...support,
+          air:supplyHabitatOxygen(support.air,hours,grid,state,support.crew),
+          water:advanceFacilityWater(support.water,hours,grid,support.crew)};
+        state.water=support.water.cleanL;
+        state.iceKg=support.water.iceKg;
+      });
       applyGreenhouse();
-      const clock = environment.unixSeconds;
-      if(lastClock!==null && clock>=lastClock){
-        let remaining=clock-lastClock;
-        const grid=power.telemetry.live;
-        while(remaining>1e-8){
-          const seconds=Math.min(60,remaining),hours=seconds/3600;
-          const habitatDuty=grid?.habitat?.duty??0;
-          const airKW=(grid?.moxie?.consumption??0)+.8*habitatDuty;
-          const waterKW=(grid?.water?.consumption??0)+.3*habitatDuty;
-          support={...support,
-            air:stepAir(support.air,hours,{powerKW:airKW},{...AIR_DEFAULTS,crew:support.crew}),
-            water:stepWater(support.water,hours,{powerKW:waterKW},{...WATER_DEFAULTS,crew:support.crew})};
-          remaining-=seconds;
-        }
-      }
-      lastClock = clock;
       const night = environment.sunElevationDeg < 0;
       if (night !== this.night) { this.night = night; applyGreenhouse(); }
       if (cycle) {
@@ -140,18 +151,18 @@ export function createLifeSupportFacilities(scene, heightAt, initialState) {
           }
         }
       }
-      air.update(support.air); water.update(support.water);
+      air.update({...support.air,producer:Boolean(power.telemetry.live?.moxie?.duty)}); water.update(support.water);
       air.frame(time,dt); water.frame(time,dt); greenhouse.frame(time);
       consoles.update(dt);
       if (time-lastDraw>.25) { draw(); lastDraw=time; }
     },
-    reset(next) { power.reset();support=createLifeSupport(next); colony=next; inside=false; cycle=null; lastClock=null; greenhouseControls.led='auto';greenhouseControls.irrigation=false;applyGreenhouse();greenhouse.setAirlock(false,false); draw(); },
+    reset(next) { power.reset();support=createLifeSupport(next); colony=next; inside=false; cycle=null;  greenhouseControls.led='auto';greenhouseControls.irrigation=false;applyGreenhouse();greenhouse.setAirlock(false,false); draw(); },
     views: {
       greenhouse: { position:[origin.x+13,origin.y+8,origin.z+19], target:[origin.x,origin.y+2,origin.z] },
       air: { position:[25,5.5,17], target:[19,1.6,6] },
       water: { position:[55,6.1,-15], target:[62,1.65,-26] },
     },
-    dispose() { consoles.dispose();greenhouse.dispose(); air.dispose(); water.dispose(); for (const m of [greenhouse,air,water]) m.group.removeFromParent(); },
+    dispose() { oxygenLine.dispose();consoles.dispose();greenhouse.dispose(); air.dispose(); water.dispose(); for (const m of [greenhouse,air,water]) m.group.removeFromParent(); },
   };
   return api;
 }

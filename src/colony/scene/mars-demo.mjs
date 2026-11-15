@@ -54,7 +54,7 @@ function makeScene() {
     const {key,value}=event.detail??{};
     if(['closed','drill','lamp','blackStart'].includes(key)&&typeof value==='boolean')lifeSupport.power.controls[key]=value;
     if(key==='season'&&[0,90,180,270].includes(value))lifeSupport.power.controls.season=value;
-    if(key==='forecast')window.dispatchEvent(new CustomEvent('colony:power-report',{detail:lifeSupport.power.forecast()}));
+    if(key==='forecast')window.dispatchEvent(new CustomEvent('colony:power-report',{detail:lifeSupport.forecast()}));
   },{signal:lifecycle.signal})
   window.addEventListener('colony:analyze-soil',()=>ova.analyzeSoil(),{signal:lifecycle.signal})
   const listenerOptions = { signal: lifecycle.signal }
@@ -85,7 +85,7 @@ function makeScene() {
     return ground.userData.heightAt(x, z)
   }
   // IHAN-SRC: keep real facilities outside the dome/lander clearances.
-  const lifeSupport = createLifeSupportFacilities(scene, groundY, state)
+  const lifeSupport = createLifeSupportFacilities(scene, groundY, state, ova.floorY)
   Object.assign(ova.views, lifeSupport.views)
   ova.views.comms={position:[-16,12,30],target:[COMMS_PAD.x,6,COMMS_PAD.z]};
   const tracks = createFootprints(scene, groundY)
@@ -407,6 +407,7 @@ function makeScene() {
   canvas.addEventListener("pointerdown", event => { dragStart = [event.clientX, event.clientY] }, listenerOptions)
   canvas.addEventListener("pointerup", event => {
     if (fps.active || event.button !== 0 || !dragStart || Math.hypot(event.clientX - dragStart[0], event.clientY - dragStart[1]) > 5) return
+    if(ova.solar.interact(camera,event,canvas)) return
     commit(targetAt(event))
   }, listenerOptions)
   const observer = new ResizeObserver(() => {
@@ -454,11 +455,20 @@ function makeScene() {
     // IHAN-SRC: drive vendor calculations from the same Mars clock, including warp.
     lifeSupport.update(delta, environment.telemetry, camera, fps)
     const habitatTransition=navigation.update(delta); if(habitatTransition)fps.teleport(new T.Vector3(habitatTransition.x,habitatTransition.y+1.65,habitatTransition.z),0,habitatTransition.yaw)
-    ova.solar.framePower(delta,lifeSupport.power.telemetry.dust);
+    const power=lifeSupport.power.telemetry;
+    ova.solar.framePower(power.strokes);
+    ova.solar.setClosed(power.controls.closed);
+    if(Math.floor(environment.telemetry.unixSeconds)!==ova.lastPowerSecond){
+      ova.lastPowerSecond=Math.floor(environment.telemetry.unixSeconds);
+      ova.solar.updatePowerDisplay(power.live?.groups??[],power.live?.daylight);
+    }
     environment.setLifeSupport({...lifeSupport.telemetry,lab:ova.soilAnalysis})
     if(Math.floor(environment.telemetry.unixSeconds)!==ova.lastScreenSecond){ova.lastScreenSecond=Math.floor(environment.telemetry.unixSeconds);ova.updateLifeDisplays(lifeSupport.telemetry)}
     tracks.update(delta)
-    crewAgents.update(delta, { state, playerId, fpsActive: fps.active, camera, speed: environment.telemetry.warp })
+    const {sunElevationDeg,warp}=environment.telemetry
+    const night=sunElevationDeg<0
+    ova.setHabitatLights(night&&(power.live?.habitat?.consumption??0)>0)
+    crewAgents.update(delta, { state, playerId, fpsActive: fps.active, camera, night, speed: warp })
     if (fps.active) fps.update(delta, updateAim)
     else controls.update()
     scene.updateMatrixWorld()
@@ -473,7 +483,7 @@ function makeScene() {
   window.render_game_to_text = () => JSON.stringify({
     scene: "colony", coordinates: "metres; +X east, +Y up, -Z north", state,
     storm: Boolean(state.timeline.at(-1)?.storm), activeTask: status.textContent,
-    world:'duz-ova', view:currentView, insideHabitat:navigation.inside, assets:{crew:Boolean(teamCharacter),rover:reference.children.length>0},
+    world:'duz-ova', view:currentView, insideHabitat:navigation.inside, habitatLights:ova.habitatLightsOn, assets:{crew:Boolean(teamCharacter),rover:reference.children.length>0},
     fps: fps.active, player: fps.telemetry, environment: environment.telemetry,
     lifeSupport: lifeSupport.telemetry, // IHAN-SRC: deterministic observer contract
     crewAgents: crewAgents.telemetry,rover:roverAgent.telemetry,comms:comms.telemetry,
@@ -572,7 +582,8 @@ function makeScene() {
     state.crew.forEach((person, index) => {
       crewModels.get(index).visible = person.health > 0 && (!fps.active || person.id !== playerId)
     })
-    ova.solar.updatePowerDisplay(lifeSupport.power.telemetry.live?.groups??[]);
+    const livePower=lifeSupport.power.telemetry.live;
+    ova.solar.updatePowerDisplay(livePower?.groups??[],livePower?.daylight);
     environment.syncModules(moduleLights)
     scene.updateMatrixWorld(true)
     preview.clear()

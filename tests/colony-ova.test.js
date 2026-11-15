@@ -40,7 +40,13 @@ describe('İhan Düz Ova world (real source a7d5ce6)',()=>{
     const draws=[];farm.traverse(o=>{if(o.isMesh)draws.push(o)});expect(draws.length).toBeLessThanOrEqual(28);
     expect(typeof world.solar.updateBatteryDisplay).toBe('function');
     const lights=[];scene.traverse(o=>{if(o.isLight)lights.push(o);});
-    expect(lights).toHaveLength(4); expect(lights.every(o=>!o.castShadow)).toBe(true);
+    expect(lights).toHaveLength(5); expect(lights.every(o=>!o.castShadow)).toBe(true);
+    expect(lights.every(o=>o.intensity===0)).toBe(true);
+    world.setHabitatLights(true);
+    expect(world.habitatLightsOn).toBe(true);
+    expect(lights.every(o=>o.intensity>0)).toBe(true);
+    world.setHabitatLights(false);
+    expect(lights.every(o=>o.intensity===0)).toBe(true);
     const rocks=scene.children.filter(o=>o.isInstancedMesh);
     expect(rocks).toHaveLength(5);expect(rocks.reduce((sum,o)=>sum+o.count,0)).toBe(7140);
     expect(scene.getObjectByName('Mars_environment')).toBeUndefined();

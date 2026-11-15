@@ -63,13 +63,17 @@ export function addPowerCables(T, farm, height, sites, tables, inverters) {
   cable([[busX-1.45,busZ+.40,busY],[switchX,switchZ-.27,switchY]],.065,ac)
   const loads=[
     {site:sites.greenhouse,xOffset:-5.16,zOffset:2.7,waypoints:[[35,15.8],[65,15.8]]},
-    {site:sites.water,xOffset:5.12,zOffset:0,waypoints:[[36,16.17],[130,16.17],[130,-72]]}
+    {site:sites.water,xOffset:5.12,zOffset:0,waypoints:[[36,16.17],[130,16.17],[130,-72]]},
+    {site:sites.moxie,xOffset:4.7,zOffset:1,waypoints:[[34,16],[84,16],[84,-39]]},
+    {site:sites.habitat,xOffset:2.8,zOffset:4.2,waypoints:[[33,16],[49,16],[49,-41.8]]}
   ]
-  for(const {site,xOffset,zOffset,waypoints} of loads) {
+  for(const [index,{site,xOffset,zOffset,waypoints}] of loads.entries()) {
+    if(!site)continue
     const x=site.x+xOffset,z=site.z+zOffset
     const y=cabinet(x,z,.62,.83,.38)
     const [endX]=waypoints.at(-1)
-    cable([[switchX,switchZ+.27,switchY],...waypoints,[endX,z],[x,z],[x,z,y],[x-Math.sign(xOffset)*.30,z,y]],.086,ac)
+    const source=index<2?[switchX,switchZ+.27,switchY]:[busX-1.45+(index-2.5)*.4,busZ+.4,busY]
+    cable([source,...waypoints,[endX,z],[x,z],[x,z,y],[x-Math.sign(xOffset)*.30,z,y]],.086,ac)
   }
   return {counts,switchPosition,lever,setClosed(closed){lever.rotation.x=closed?-.72:.72}}
 }

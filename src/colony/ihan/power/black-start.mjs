@@ -1,3 +1,5 @@
+import { stepGreenhouseGas } from "./greenhouse-gas.mjs"
+import { updateWaterTankHold } from "./facility-water.mjs"
 import { GRID } from "./mars-power.mjs"
 
 const HABITAT_KW=3
@@ -94,11 +96,13 @@ export function createAutomaticRecovery(snapshot={}) {
       const life=wasRestored?state.habitatKW:0
       grid.loadEnergy.habitat+=life*seconds/3600
       grid.dailyShortfall+=(6-life)*seconds/3600
+      const plantGas=stepGreenhouseGas(grid,{elevation:0,transmission:0,ledFraction:0},seconds/3600)
       const meter={consumption:0,loss:0,supply:0,current:0,duty:0,batteryPower:0,nightEnergy:0,sources:[]}
-      return {daylight:false,elevation:0,production:0,heater:0,reserve:0,life,
-        backupActive:false,greenhouse:meter,moxie:meter,habitat:{...meter,consumption:life,supply:life,duty:life/6,sources:life?[4]:[]},water:{...meter,fault:true},
+      const tankHold=updateWaterTankHold(grid)
+      return {recovering:true,daylight:false,elevation:0,production:0,heater:0,reserve:0,life,
+        backupActive:false,plantGas,greenhouse:meter,moxie:meter,habitat:{...meter,consumption:life,supply:life,duty:life/6,sources:life?[4]:[]},water:{...meter,fault:true,tankHold,lineEnergized:false},
         groups:grid.banks.map((stored,index)=>({
-          stored,pv:0,charge:0,output:index===3?life:0,draw:index===3?drawKW:0
+          stored,pv:0,charge:0,waterTankHold:index===0&&tankHold,output:index===3?life:0,draw:index===3?drawKW:0
         }))}
     }
   }
